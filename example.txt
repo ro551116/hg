@@ -1,0 +1,2 @@
+cube size=2 location=0,0,0 color=1,0,0
+sphere radius=1 location=3,0,0 color=0,0,1
