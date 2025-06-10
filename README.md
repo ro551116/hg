@@ -36,6 +36,25 @@ lets you choose the target monitor from a dropdown and start/stop monitoring.
 python fullscreen_monitor_gui.py
 ```
 
+
+
+
+
+
+
+### Creating an executable
+
+If you want to run the tool without needing Python installed, you can package
+it with [PyInstaller](https://pyinstaller.org/). Install PyInstaller and then
+build a single-file executable like this:
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile fullscreen_monitor.py
+```
+
+The resulting `fullscreen_monitor.exe` will be found in the `dist` directory.
+
 ## 中文說明
 
 此專案提供兩個範例程式，示範如何在 Windows 上偵測視窗進入全螢幕模式
@@ -71,3 +90,15 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 ```bash
 python fullscreen_monitor_gui.py
 ```
+
+### 建立可執行檔
+
+若希望在沒有 Python 環境的電腦上直接執行，可使用
+[PyInstaller](https://pyinstaller.org/) 打包成單一執行檔：
+
+```bash
+pip install pyinstaller
+pyinstaller --onefile fullscreen_monitor.py
+```
+
+完成後的 `fullscreen_monitor.exe` 會出現在 `dist` 目錄下。
