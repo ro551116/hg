@@ -14,6 +14,8 @@ import win32api
 import win32con
 import win32gui
 
+ORIGINAL_MONITORS = {}
+
 
 def list_monitors():
     """Return list of (hMonitor, info)."""
@@ -26,6 +28,14 @@ def list_monitors():
 
     win32api.EnumDisplayMonitors(None, None, cb, None)
     return monitors
+
+
+def monitor_index_from_hwnd(hwnd, monitors):
+    hmon = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
+    for i, (h, _info) in enumerate(monitors):
+        if h == hmon:
+            return i
+    return -1
 
 
 def is_fullscreen(hwnd):
@@ -68,10 +78,22 @@ class FullscreenMonitorApp:
         self.root = root
         self.monitors = list_monitors()
         self.target = tk.IntVar(value=1 if len(self.monitors) > 1 else 0)
-        self.hook = None
+        self.hooks = []
         self.running = False
         self.thread = None
         self.build_ui()
+
+    def handle_window(self, hwnd):
+        if is_fullscreen(hwnd):
+            if hwnd not in ORIGINAL_MONITORS:
+                ORIGINAL_MONITORS[hwnd] = monitor_index_from_hwnd(hwnd, self.monitors)
+            if monitor_index_from_hwnd(hwnd, self.monitors) != self.target.get():
+                move_to_monitor(hwnd, self.target.get(), self.monitors)
+        else:
+            if hwnd in ORIGINAL_MONITORS:
+                idx = ORIGINAL_MONITORS.pop(hwnd)
+                if idx >= 0:
+                    move_to_monitor(hwnd, idx, self.monitors)
 
     def build_ui(self):
         self.root.title("Fullscreen Monitor Control")
@@ -89,9 +111,8 @@ class FullscreenMonitorApp:
         self.stop_btn.pack(side=tk.LEFT)
 
     def win_event_proc(self, hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
-        if event == win32con.EVENT_SYSTEM_FOREGROUND:
-            if is_fullscreen(hwnd):
-                move_to_monitor(hwnd, self.target.get(), self.monitors)
+        if event in (win32con.EVENT_SYSTEM_FOREGROUND, win32con.EVENT_OBJECT_LOCATIONCHANGE):
+            self.handle_window(hwnd)
 
     def message_loop(self):
         while self.running:
@@ -104,15 +125,26 @@ class FullscreenMonitorApp:
         self.running = True
         self.start_btn.config(state=tk.DISABLED)
         self.stop_btn.config(state=tk.NORMAL)
-        self.hook = win32gui.SetWinEventHook(
-            win32con.EVENT_SYSTEM_FOREGROUND,
-            win32con.EVENT_SYSTEM_FOREGROUND,
-            0,
-            self.win_event_proc,
-            0,
-            0,
-            win32con.WINEVENT_OUTOFCONTEXT,
-        )
+        self.hooks = [
+            win32gui.SetWinEventHook(
+                win32con.EVENT_SYSTEM_FOREGROUND,
+                win32con.EVENT_SYSTEM_FOREGROUND,
+                0,
+                self.win_event_proc,
+                0,
+                0,
+                win32con.WINEVENT_OUTOFCONTEXT,
+            ),
+            win32gui.SetWinEventHook(
+                win32con.EVENT_OBJECT_LOCATIONCHANGE,
+                win32con.EVENT_OBJECT_LOCATIONCHANGE,
+                0,
+                self.win_event_proc,
+                0,
+                0,
+                win32con.WINEVENT_OUTOFCONTEXT,
+            ),
+        ]
         self.thread = threading.Thread(target=self.message_loop, daemon=True)
         self.thread.start()
 
@@ -120,8 +152,9 @@ class FullscreenMonitorApp:
         if not self.running:
             return
         self.running = False
-        win32gui.UnhookWinEvent(self.hook)
-        self.hook = None
+        for h in self.hooks:
+            win32gui.UnhookWinEvent(h)
+        self.hooks = []
         self.start_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
 

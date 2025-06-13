@@ -16,6 +16,9 @@ import win32api
 import win32con
 import win32gui
 
+# Map of window handle to its original monitor index when moved
+ORIGINAL_MONITORS = {}
+
 TARGET_MONITOR = 1
 
 if len(sys.argv) > 1:
@@ -37,6 +40,15 @@ def list_monitors():
 
 
 MONITORS = list_monitors()
+
+
+def monitor_index_from_hwnd(hwnd):
+    """Return the index of the monitor a window is on."""
+    hmon = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
+    for i, (h, _info) in enumerate(MONITORS):
+        if h == hmon:
+            return i
+    return -1
 
 
 def is_fullscreen(hwnd):
@@ -71,22 +83,45 @@ def move_to_monitor(hwnd, index):
     )
 
 
-def win_event_proc(hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
-    if event == win32con.EVENT_SYSTEM_FOREGROUND:
-        if is_fullscreen(hwnd):
+def handle_window(hwnd):
+    if is_fullscreen(hwnd):
+        if hwnd not in ORIGINAL_MONITORS:
+            ORIGINAL_MONITORS[hwnd] = monitor_index_from_hwnd(hwnd)
+        if monitor_index_from_hwnd(hwnd) != TARGET_MONITOR:
             move_to_monitor(hwnd, TARGET_MONITOR)
+    else:
+        if hwnd in ORIGINAL_MONITORS:
+            orig_idx = ORIGINAL_MONITORS.pop(hwnd)
+            if orig_idx >= 0:
+                move_to_monitor(hwnd, orig_idx)
+
+
+def win_event_proc(hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
+    if event in (win32con.EVENT_SYSTEM_FOREGROUND, win32con.EVENT_OBJECT_LOCATIONCHANGE):
+        handle_window(hwnd)
 
 
 if __name__ == "__main__":
-    hook = win32gui.SetWinEventHook(
-        win32con.EVENT_SYSTEM_FOREGROUND,
-        win32con.EVENT_SYSTEM_FOREGROUND,
-        0,
-        win_event_proc,
-        0,
-        0,
-        win32con.WINEVENT_OUTOFCONTEXT,
-    )
+    hooks = [
+        win32gui.SetWinEventHook(
+            win32con.EVENT_SYSTEM_FOREGROUND,
+            win32con.EVENT_SYSTEM_FOREGROUND,
+            0,
+            win_event_proc,
+            0,
+            0,
+            win32con.WINEVENT_OUTOFCONTEXT,
+        ),
+        win32gui.SetWinEventHook(
+            win32con.EVENT_OBJECT_LOCATIONCHANGE,
+            win32con.EVENT_OBJECT_LOCATIONCHANGE,
+            0,
+            win_event_proc,
+            0,
+            0,
+            win32con.WINEVENT_OUTOFCONTEXT,
+        ),
+    ]
 
     try:
         while True:
@@ -95,4 +130,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     finally:
-        win32gui.UnhookWinEvent(hook)
+        for h in hooks:
+            win32gui.UnhookWinEvent(h)

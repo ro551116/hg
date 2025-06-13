@@ -18,7 +18,8 @@ pip install pywin32
 ## Usage
 
 Run the script from a command prompt. By default it moves fullscreen windows to
-the second monitor (index `1`). You can pass a different monitor index as a
+the second monitor (index `1`). When the window leaves fullscreen it is
+returned to its original monitor. You can pass a different monitor index as a
 command-line argument.
 
 ```bash
@@ -74,7 +75,8 @@ pip install pywin32
 ### 指令列版使用方式
 
 在命令提示字元中執行 `fullscreen_monitor.py`。預設會把全螢幕視窗移到第二個
-螢幕（索引值 `1`），也可以在啟動時傳入其他索引值來指定目標螢幕：
+螢幕（索引值 `1`），離開全螢幕後會自動移回原本的螢幕，也可以在啟動時傳入
+其他索引值來指定目標螢幕：
 
 ```bash
 python fullscreen_monitor.py 0  # 移到第一個螢幕
