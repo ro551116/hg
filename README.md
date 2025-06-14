@@ -2,6 +2,14 @@
 
 This repository contains Python scripts that allow you to create 3D scenes in Blender using plain text instructions, simple diagrams, or natural language with the help of a language model.
 
+## 中文說明
+
+本專案提供多種方式在 Blender 中產生 3D 場景：
+
+1. **文字指令**：撰寫指令檔後以 `text_to_blender.py` 產生立方體、球體及圓柱等物件。
+2. **Graphviz 圖形**：使用 `diagram_to_blender.py` 將 `.dot` 檔轉成節點與邊的 3D 模型。
+3. **自然語言**：搭配 OpenAI API，`lm_to_blender.py` 可把自由文字轉成可供 `text_to_blender.py` 執行的指令。
+
 ## Usage
 
 ### Text instructions
@@ -58,9 +66,11 @@ pip install -r requirements.txt
 ```
 These scripts must be run inside Blender as shown in the usage examples.
 
-## Testing
-Run the following to ensure all scripts load correctly:
+## 依賴與測試
+使用 `pip install -r requirements.txt` 來安裝所需套件，然後執行：
 ```bash
 python3 -m py_compile text_to_blender.py diagram_to_blender.py lm_to_blender.py
 ```
+確保所有腳本都能正常載入。
+
 
