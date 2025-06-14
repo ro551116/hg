@@ -9,6 +9,7 @@ This repository contains Python scripts that allow you to create 3D scenes in Bl
 1. **文字指令**：撰寫指令檔後以 `text_to_blender.py` 產生立方體、球體及圓柱等物件。
 2. **Graphviz 圖形**：使用 `diagram_to_blender.py` 將 `.dot` 檔轉成節點與邊的 3D 模型。
 3. **自然語言**：搭配 OpenAI API，`lm_to_blender.py` 可把自由文字轉成可供 `text_to_blender.py` 執行的指令。
+4. **模組連結**：使用 `append library=<blend檔> object=<名稱>` 指令可載入預先建好的模組，例如 truss 或燈光設備。
 
 ## Usage
 
@@ -18,6 +19,9 @@ This repository contains Python scripts that allow you to create 3D scenes in Bl
    - `cube size=<number> location=x,y,z color=r,g,b`
    - `sphere radius=<number> location=x,y,z color=r,g,b`
    - `cylinder radius=<number> depth=<number> location=x,y,z color=r,g,b`
+   - `append library=<blend_file> object=<name> location=x,y,z color=r,g,b`
+     - Load an object from the specified `.blend` library file. Useful for
+       reusing stage modules like trusses or lighting rigs.
 
 2. Run Blender in background mode with the script:
 
@@ -32,9 +36,11 @@ The script will parse the instructions and create the corresponding objects with
 ```
 cube size=2 location=0,0,0 color=1,0,0
 sphere radius=1 location=3,0,0 color=0,0,1
+append library=assets/truss.blend object=LightingRig location=5,0,0 color=1,1,1
 ```
 
-Running the above will produce a red cube at the origin and a blue sphere at (3,0,0).
+Running the above will produce a red cube at the origin, a blue sphere at (3,0,0),
+and append the object `LightingRig` from `assets/truss.blend` at (5,0,0).
 
 ### Diagram input
 

@@ -3,6 +3,7 @@
 
 import bpy
 import sys
+import os
 
 
 def parse_line(line):
@@ -26,6 +27,16 @@ def parse_line(line):
     return {'type': obj_type, 'args': args}
 
 
+def append_from_library(library, obj_name, location):
+    """Append a predefined object from a .blend library."""
+    directory = os.path.join(library, "Object")
+    filepath = os.path.join(directory, obj_name)
+    bpy.ops.wm.append(filename=obj_name, directory=directory)
+    obj = bpy.context.selected_objects[-1]
+    obj.location = location
+    return obj
+
+
 def create_object(info):
     """Create a Blender object based on parsed info."""
     obj_type = info['type']
@@ -42,6 +53,18 @@ def create_object(info):
         radius = float(args.get('radius', 1))
         depth = float(args.get('depth', 2))
         bpy.ops.mesh.primitive_cylinder_add(radius=radius, depth=depth, location=location)
+    elif obj_type == 'append':
+        library = args.get('library')
+        obj_name = args.get('object')
+        if not library or not obj_name:
+            print("append requires library and object parameters")
+            return
+        append_from_library(library, obj_name, location)
+        obj = bpy.context.active_object
+        mat = bpy.data.materials.new(name=f"mat_{obj.name}")
+        mat.diffuse_color = (*color, 1)
+        obj.data.materials.append(mat)
+        return
     else:
         print(f"Unsupported object type: {obj_type}")
         return
