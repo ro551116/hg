@@ -12,10 +12,13 @@ monitor). Monitor indices follow the order returned by EnumDisplayMonitors.
 
 import sys
 import time
+import os
+import json
 try:
     import win32api
     import win32con
     import win32gui
+    import win32process
 except ImportError as exc:
     raise SystemExit(
         "This script requires the 'pywin32' package. "
@@ -26,12 +29,23 @@ except ImportError as exc:
 ORIGINAL_MONITORS = {}
 
 TARGET_MONITOR = 1
+APP_MONITORS = {}
 
 if len(sys.argv) > 1:
     try:
         TARGET_MONITOR = int(sys.argv[1])
     except ValueError:
         pass
+
+# Load optional config mapping process names to monitor indices
+if os.path.exists("config.json"):
+    try:
+        with open("config.json", "r", encoding="utf-8") as fh:
+            APP_MONITORS = {
+                k.lower(): int(v) for k, v in json.load(fh).items()
+            }
+    except Exception:
+        APP_MONITORS = {}
 
 
 def list_monitors():
@@ -68,6 +82,24 @@ def is_fullscreen(hwnd):
     m_left, m_top, m_right, m_bottom = info['Monitor']
     return (left <= m_left and top <= m_top and right >= m_right and bottom >= m_bottom)
 
+
+def get_process_name(hwnd):
+    """Return the lowercase process name for the given window."""
+    try:
+        _tid, pid = win32process.GetWindowThreadProcessId(hwnd)
+        hproc = win32api.OpenProcess(
+            win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
+            False,
+            pid,
+        )
+        try:
+            exe = win32process.GetModuleFileNameEx(hproc, 0)
+        finally:
+            win32api.CloseHandle(hproc)
+        return os.path.basename(exe).lower()
+    except Exception:
+        return ""
+
 def move_to_monitor(hwnd, index):
     """Move the given window to the specified monitor index."""
     if index >= len(MONITORS):
@@ -88,11 +120,16 @@ def move_to_monitor(hwnd, index):
 
 
 def handle_window(hwnd):
+    target = TARGET_MONITOR
+    name = get_process_name(hwnd)
+    if name in APP_MONITORS:
+        target = APP_MONITORS[name]
+
     if is_fullscreen(hwnd):
         if hwnd not in ORIGINAL_MONITORS:
             ORIGINAL_MONITORS[hwnd] = monitor_index_from_hwnd(hwnd)
-        if monitor_index_from_hwnd(hwnd) != TARGET_MONITOR:
-            move_to_monitor(hwnd, TARGET_MONITOR)
+        if monitor_index_from_hwnd(hwnd) != target:
+            move_to_monitor(hwnd, target)
     else:
         if hwnd in ORIGINAL_MONITORS:
             orig_idx = ORIGINAL_MONITORS.pop(hwnd)

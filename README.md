@@ -26,6 +26,20 @@ the second monitor (index `1`). When the window leaves fullscreen it is
 returned to its original monitor. You can pass a different monitor index as a
 command-line argument.
 
+You can also create a `config.json` file in the same directory (an example is
+included) to map specific applications to monitors. The JSON should map process
+names to monitor indices, for example:
+
+```json
+{
+  "vlc.exe": 0,
+  "chrome.exe": 1
+}
+```
+
+If a fullscreen window belongs to a listed process, it will be moved to the
+specified monitor.
+
 ```bash
 python fullscreen_monitor.py 0  # move to the first monitor
 ```
@@ -89,6 +103,18 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 ```
 
 按下 `Ctrl+C` 可停止執行。
+
+若需要針對特定程式指定顯示器，可在同一目錄建立 `config.json`
+檔案（範例檔已附在倉庫中），內容為程式名稱對應到螢幕索引的對照，例如：
+
+```json
+{
+  "vlc.exe": 0,
+  "chrome.exe": 1
+}
+```
+
+當有設定時，進入全螢幕的視窗若屬於上述程式，就會被移到指定的螢幕。
 
 ### 圖形介面版使用方式
 
