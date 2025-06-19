@@ -12,9 +12,15 @@ monitor). Monitor indices follow the order returned by EnumDisplayMonitors.
 
 import sys
 import time
-import win32api
-import win32con
-import win32gui
+try:
+    import win32api
+    import win32con
+    import win32gui
+except ImportError as exc:
+    raise SystemExit(
+        "This script requires the 'pywin32' package. "
+        "Install it with 'pip install pywin32' on Windows."
+    ) from exc
 
 # Map of window handle to its original monitor index when moved
 ORIGINAL_MONITORS = {}

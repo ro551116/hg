@@ -10,9 +10,15 @@ import time
 import tkinter as tk
 from tkinter import ttk
 
-import win32api
-import win32con
-import win32gui
+try:
+    import win32api
+    import win32con
+    import win32gui
+except ImportError as exc:
+    raise SystemExit(
+        "This script requires the 'pywin32' package. "
+        "Install it with 'pip install pywin32' on Windows."
+    ) from exc
 
 ORIGINAL_MONITORS = {}
 

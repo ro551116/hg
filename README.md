@@ -14,6 +14,10 @@ Install the dependency with:
 ```bash
 pip install pywin32
 ```
+若執行程式時出現 `ModuleNotFoundError: No module named 'win32api'`，
+請確認目前使用的 Python 環境已安裝 `pywin32`。
+If you run the script and see `ModuleNotFoundError: No module named 'win32api'`,
+make sure `pywin32` is installed for the Python interpreter you are using.
 
 ## Usage
 
@@ -71,6 +75,8 @@ The resulting `fullscreen_monitor.exe` will be found in the `dist` directory.
 ```bash
 pip install pywin32
 ```
+若執行程式時出現 `ModuleNotFoundError: No module named 'win32api'`，
+請確認使用的 Python 環境已安裝 `pywin32`。
 
 ### 指令列版使用方式
 
