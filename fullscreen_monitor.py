@@ -25,8 +25,10 @@ except ImportError as exc:
         "Install it with 'pip install pywin32' on Windows."
     ) from exc
 
-# Map of window handle to its original monitor index when moved
-ORIGINAL_MONITORS = {}
+# Map of window handle to its original monitor index and placement
+# before being moved to the target monitor. This lets us restore the
+# exact position once the window exits fullscreen.
+ORIGINAL_WINDOWS = {}
 
 TARGET_MONITOR = 1
 APP_MONITORS = {}
@@ -146,33 +148,42 @@ def handle_window(hwnd):
         target = APP_MONITORS[name]
 
     if is_fullscreen(hwnd):
-        if hwnd not in ORIGINAL_MONITORS:
-            orig = monitor_index_from_hwnd(hwnd)
-            if orig == target:
-                orig = PRIMARY_MONITOR
-            ORIGINAL_MONITORS[hwnd] = orig
+        if hwnd not in ORIGINAL_WINDOWS:
+            orig_idx = monitor_index_from_hwnd(hwnd)
+            if orig_idx == target:
+                orig_idx = PRIMARY_MONITOR
+            placement = win32gui.GetWindowPlacement(hwnd)
+            ORIGINAL_WINDOWS[hwnd] = (orig_idx, placement)
         if monitor_index_from_hwnd(hwnd) != target:
             move_to_monitor(hwnd, target)
     else:
-        if hwnd in ORIGINAL_MONITORS:
-            orig_idx = ORIGINAL_MONITORS.pop(hwnd)
+        if hwnd in ORIGINAL_WINDOWS:
+            orig_idx, placement = ORIGINAL_WINDOWS.pop(hwnd)
             if orig_idx >= 0:
                 move_to_monitor(hwnd, orig_idx)
+            try:
+                win32gui.SetWindowPlacement(hwnd, placement)
+            except win32gui.error:
+                pass
 
 
 def restore_windows():
     """Return windows that were moved back to their original monitor."""
-    for hwnd in list(ORIGINAL_MONITORS.keys()):
+    for hwnd in list(ORIGINAL_WINDOWS.keys()):
         try:
             if not win32gui.IsWindow(hwnd):
-                ORIGINAL_MONITORS.pop(hwnd, None)
+                ORIGINAL_WINDOWS.pop(hwnd, None)
                 continue
             if not is_fullscreen(hwnd):
-                idx = ORIGINAL_MONITORS.pop(hwnd)
+                idx, placement = ORIGINAL_WINDOWS.pop(hwnd)
                 if idx >= 0:
                     move_to_monitor(hwnd, idx)
+                try:
+                    win32gui.SetWindowPlacement(hwnd, placement)
+                except win32gui.error:
+                    pass
         except win32gui.error:
-            ORIGINAL_MONITORS.pop(hwnd, None)
+            ORIGINAL_WINDOWS.pop(hwnd, None)
 
 
 def check_all_windows():

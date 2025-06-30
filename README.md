@@ -49,12 +49,15 @@ The tool now scans all visible top-level windows every half second so even
 fullscreen windows created in the background (such as the Photos slideshow)
 are detected. If a fullscreen window is already on the target monitor when it
 is first detected, the script assumes it came from the primary monitor so it
-will be moved back there when exiting fullscreen.
+will be moved back there when exiting fullscreen. The script also remembers
+each window's original size and position so once fullscreen ends, the window is
+restored exactly where it started instead of remaining maximized on the other
+monitor.
 Internally it lists monitors using `win32api.EnumDisplayMonitors(None, None)`.
 If you see an error mentioning too many arguments for `EnumDisplayMonitors`, make
-sure you are running the latest version of these scripts.
-The monitor loop also handles closed windows gracefully so the tool keeps
-working after a slideshow window exits fullscreen.
+sure you are running the latest version of these scripts. The monitor loop also
+handles closed windows gracefully so the tool keeps working after a slideshow
+window exits fullscreen.
 
 ### GUI version
 
@@ -121,7 +124,8 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 若遇到 `EnumDisplayMonitors()` 參數過多的錯誤，請確認已更新到最新版程式。
 新增的錯誤處理可以在全螢幕投影片結束後繼續正常監控，不會因為視窗關閉而停止。
 若偵測到全螢幕視窗一開始就位於目標螢幕，程式會假設它原本在主要螢幕，
-因此在退出全螢幕時會自動移回主要螢幕。
+因此在退出全螢幕時會自動移回主要螢幕。程式也會記錄視窗進入全螢幕前的尺寸和位置，
+當離開全螢幕後即可恢復原來的狀態，避免停留在另一個螢幕的全螢幕大小。
 
 若需要針對特定程式指定顯示器，可在同一目錄建立 `config.json`
 檔案（範例檔已附在倉庫中），內容為程式名稱對應到螢幕索引的對照，例如：
