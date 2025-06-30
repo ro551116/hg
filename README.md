@@ -47,7 +47,9 @@ python fullscreen_monitor.py 0  # move to the first monitor
 Use `Ctrl+C` to stop the script.
 The tool now scans all visible top-level windows every half second so even
 fullscreen windows created in the background (such as the Photos slideshow)
-are detected.
+are detected. If a fullscreen window is already on the target monitor when it
+is first detected, the script assumes it came from the primary monitor so it
+will be moved back there when exiting fullscreen.
 Internally it lists monitors using `win32api.EnumDisplayMonitors(None, None)`.
 If you see an error mentioning too many arguments for `EnumDisplayMonitors`, make
 sure you are running the latest version of these scripts.
@@ -58,7 +60,8 @@ working after a slideshow window exits fullscreen.
 
 If you prefer a small graphical interface, run `fullscreen_monitor_gui.py`. It
 lets you choose the target monitor from a dropdown. After you click Start the
-tool periodically checks the active window and moves it if needed.
+tool periodically checks the active window and moves it if needed. The layout
+uses a simple grid with a status indicator so it looks cleaner.
 
 ```bash
 python fullscreen_monitor_gui.py
@@ -117,6 +120,8 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 程式在背景使用 `win32api.EnumDisplayMonitors(None, None)` 列出所有螢幕，
 若遇到 `EnumDisplayMonitors()` 參數過多的錯誤，請確認已更新到最新版程式。
 新增的錯誤處理可以在全螢幕投影片結束後繼續正常監控，不會因為視窗關閉而停止。
+若偵測到全螢幕視窗一開始就位於目標螢幕，程式會假設它原本在主要螢幕，
+因此在退出全螢幕時會自動移回主要螢幕。
 
 若需要針對特定程式指定顯示器，可在同一目錄建立 `config.json`
 檔案（範例檔已附在倉庫中），內容為程式名稱對應到螢幕索引的對照，例如：
@@ -134,7 +139,7 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 
 若想要簡單的圖形介面，可執行 `fullscreen_monitor_gui.py`。程式會列出所有螢幕
 並提供下拉選單供選擇目標螢幕。按下 Start 後，程式會定期檢查作用中視窗
-是否全螢幕並視需要移動位置。
+是否全螢幕並視需要移動位置。界面採用網格排版並顯示目前狀態，外觀更加簡潔。
 
 ```bash
 python fullscreen_monitor_gui.py

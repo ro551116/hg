@@ -33,6 +33,13 @@ def list_monitors():
     return monitors
 
 
+def primary_monitor_index(monitors):
+    for i, (_h, info) in enumerate(monitors):
+        if info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY:
+            return i
+    return 0
+
+
 def monitor_index_from_hwnd(hwnd, monitors):
     hmon = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
     for i, (h, _info) in enumerate(monitors):
@@ -84,6 +91,7 @@ class FullscreenMonitorApp:
     def __init__(self, root):
         self.root = root
         self.monitors = list_monitors()
+        self.primary = primary_monitor_index(self.monitors)
         self.target = tk.IntVar(value=1 if len(self.monitors) > 1 else 0)
         self.running = False
         self.thread = None
@@ -92,7 +100,10 @@ class FullscreenMonitorApp:
     def handle_window(self, hwnd):
         if is_fullscreen(hwnd):
             if hwnd not in ORIGINAL_MONITORS:
-                ORIGINAL_MONITORS[hwnd] = monitor_index_from_hwnd(hwnd, self.monitors)
+                orig = monitor_index_from_hwnd(hwnd, self.monitors)
+                if orig == self.target.get():
+                    orig = self.primary
+                ORIGINAL_MONITORS[hwnd] = orig
             if monitor_index_from_hwnd(hwnd, self.monitors) != self.target.get():
                 move_to_monitor(hwnd, self.target.get(), self.monitors)
         else:
@@ -103,18 +114,23 @@ class FullscreenMonitorApp:
 
     def build_ui(self):
         self.root.title("Fullscreen Monitor Control")
-        frm = ttk.Frame(self.root, padding=10)
+        frm = ttk.Frame(self.root, padding=20)
         frm.pack(fill=tk.BOTH, expand=True)
 
-        ttk.Label(frm, text="Target Monitor:").pack(side=tk.LEFT)
+        ttk.Label(frm, text="Fullscreen Monitor Control", font=("Segoe UI", 14, "bold")).grid(row=0, column=0, columnspan=2, pady=(0, 10))
+
+        ttk.Label(frm, text="Target Monitor:").grid(row=1, column=0, sticky="e")
         monitor_options = [f"{i}" for i in range(len(self.monitors))]
-        self.combo = ttk.Combobox(frm, values=monitor_options, textvariable=self.target, width=5)
-        self.combo.pack(side=tk.LEFT, padx=5)
+        self.combo = ttk.Combobox(frm, values=monitor_options, textvariable=self.target, width=5, state="readonly")
+        self.combo.grid(row=1, column=1, sticky="w", padx=5)
 
         self.start_btn = ttk.Button(frm, text="Start", command=self.start)
-        self.start_btn.pack(side=tk.LEFT, padx=5)
+        self.start_btn.grid(row=2, column=0, pady=10, sticky="e")
         self.stop_btn = ttk.Button(frm, text="Stop", command=self.stop, state=tk.DISABLED)
-        self.stop_btn.pack(side=tk.LEFT)
+        self.stop_btn.grid(row=2, column=1, pady=10, sticky="w")
+
+        self.status = ttk.Label(frm, text="Stopped")
+        self.status.grid(row=3, column=0, columnspan=2)
 
     def monitor_loop(self):
         while self.running:
@@ -144,6 +160,7 @@ class FullscreenMonitorApp:
         self.running = True
         self.start_btn.config(state=tk.DISABLED)
         self.stop_btn.config(state=tk.NORMAL)
+        self.status.config(text="Monitoring...")
         self.thread = threading.Thread(target=self.monitor_loop, daemon=True)
         self.thread.start()
 
@@ -153,6 +170,7 @@ class FullscreenMonitorApp:
         self.running = False
         self.start_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
+        self.status.config(text="Stopped")
 
     def on_close(self):
         self.stop()

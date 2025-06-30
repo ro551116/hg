@@ -62,6 +62,17 @@ def list_monitors():
 MONITORS = list_monitors()
 
 
+def get_primary_monitor_index():
+    """Return the index of the primary monitor."""
+    for i, (_h, info) in enumerate(MONITORS):
+        if info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY:
+            return i
+    return 0
+
+
+PRIMARY_MONITOR = get_primary_monitor_index()
+
+
 def monitor_index_from_hwnd(hwnd):
     """Return the index of the monitor a window is on."""
     hmon = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
@@ -136,7 +147,10 @@ def handle_window(hwnd):
 
     if is_fullscreen(hwnd):
         if hwnd not in ORIGINAL_MONITORS:
-            ORIGINAL_MONITORS[hwnd] = monitor_index_from_hwnd(hwnd)
+            orig = monitor_index_from_hwnd(hwnd)
+            if orig == target:
+                orig = PRIMARY_MONITOR
+            ORIGINAL_MONITORS[hwnd] = orig
         if monitor_index_from_hwnd(hwnd) != target:
             move_to_monitor(hwnd, target)
     else:
