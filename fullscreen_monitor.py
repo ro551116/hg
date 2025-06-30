@@ -139,39 +139,22 @@ def handle_window(hwnd):
                 move_to_monitor(hwnd, orig_idx)
 
 
-def win_event_proc(hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
-    if event in (win32con.EVENT_SYSTEM_FOREGROUND, win32con.EVENT_OBJECT_LOCATIONCHANGE):
-        handle_window(hwnd)
+def restore_windows():
+    """Return windows that were moved back to their original monitor."""
+    for hwnd in list(ORIGINAL_MONITORS.keys()):
+        if not is_fullscreen(hwnd):
+            idx = ORIGINAL_MONITORS.pop(hwnd)
+            if idx >= 0:
+                move_to_monitor(hwnd, idx)
 
 
 if __name__ == "__main__":
-    hooks = [
-        win32gui.SetWinEventHook(
-            win32con.EVENT_SYSTEM_FOREGROUND,
-            win32con.EVENT_SYSTEM_FOREGROUND,
-            0,
-            win_event_proc,
-            0,
-            0,
-            win32con.WINEVENT_OUTOFCONTEXT,
-        ),
-        win32gui.SetWinEventHook(
-            win32con.EVENT_OBJECT_LOCATIONCHANGE,
-            win32con.EVENT_OBJECT_LOCATIONCHANGE,
-            0,
-            win_event_proc,
-            0,
-            0,
-            win32con.WINEVENT_OUTOFCONTEXT,
-        ),
-    ]
-
     try:
         while True:
-            win32gui.PumpWaitingMessages()
-            time.sleep(0.1)
+            hwnd = win32gui.GetForegroundWindow()
+            if hwnd:
+                handle_window(hwnd)
+            restore_windows()
+            time.sleep(0.5)
     except KeyboardInterrupt:
         pass
-    finally:
-        for h in hooks:
-            win32gui.UnhookWinEvent(h)

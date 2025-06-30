@@ -81,7 +81,6 @@ class FullscreenMonitorApp:
         self.root = root
         self.monitors = list_monitors()
         self.target = tk.IntVar(value=1 if len(self.monitors) > 1 else 0)
-        self.hooks = []
         self.running = False
         self.thread = None
         self.build_ui()
@@ -113,14 +112,17 @@ class FullscreenMonitorApp:
         self.stop_btn = ttk.Button(frm, text="Stop", command=self.stop, state=tk.DISABLED)
         self.stop_btn.pack(side=tk.LEFT)
 
-    def win_event_proc(self, hWinEventHook, event, hwnd, idObject, idChild, dwEventThread, dwmsEventTime):
-        if event in (win32con.EVENT_SYSTEM_FOREGROUND, win32con.EVENT_OBJECT_LOCATIONCHANGE):
-            self.handle_window(hwnd)
-
-    def message_loop(self):
+    def monitor_loop(self):
         while self.running:
-            win32gui.PumpWaitingMessages()
-            time.sleep(0.1)
+            hwnd = win32gui.GetForegroundWindow()
+            if hwnd:
+                self.handle_window(hwnd)
+            for wh in list(ORIGINAL_MONITORS.keys()):
+                if not is_fullscreen(wh):
+                    idx = ORIGINAL_MONITORS.pop(wh)
+                    if idx >= 0:
+                        move_to_monitor(wh, idx, self.monitors)
+            time.sleep(0.5)
 
     def start(self):
         if self.running:
@@ -128,36 +130,13 @@ class FullscreenMonitorApp:
         self.running = True
         self.start_btn.config(state=tk.DISABLED)
         self.stop_btn.config(state=tk.NORMAL)
-        self.hooks = [
-            win32gui.SetWinEventHook(
-                win32con.EVENT_SYSTEM_FOREGROUND,
-                win32con.EVENT_SYSTEM_FOREGROUND,
-                0,
-                self.win_event_proc,
-                0,
-                0,
-                win32con.WINEVENT_OUTOFCONTEXT,
-            ),
-            win32gui.SetWinEventHook(
-                win32con.EVENT_OBJECT_LOCATIONCHANGE,
-                win32con.EVENT_OBJECT_LOCATIONCHANGE,
-                0,
-                self.win_event_proc,
-                0,
-                0,
-                win32con.WINEVENT_OUTOFCONTEXT,
-            ),
-        ]
-        self.thread = threading.Thread(target=self.message_loop, daemon=True)
+        self.thread = threading.Thread(target=self.monitor_loop, daemon=True)
         self.thread.start()
 
     def stop(self):
         if not self.running:
             return
         self.running = False
-        for h in self.hooks:
-            win32gui.UnhookWinEvent(h)
-        self.hooks = []
         self.start_btn.config(state=tk.NORMAL)
         self.stop_btn.config(state=tk.DISABLED)
 

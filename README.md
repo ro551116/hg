@@ -45,15 +45,17 @@ python fullscreen_monitor.py 0  # move to the first monitor
 ```
 
 Use `Ctrl+C` to stop the script.
-
-Internally the script lists monitors using `win32api.EnumDisplayMonitors(None, None)`.
+The tool simply polls the active window every half second to see if it has
+entered or exited fullscreen mode.
+Internally it lists monitors using `win32api.EnumDisplayMonitors(None, None)`.
 If you see an error mentioning too many arguments for `EnumDisplayMonitors`, make
 sure you are running the latest version of these scripts.
 
 ### GUI version
 
 If you prefer a small graphical interface, run `fullscreen_monitor_gui.py`. It
-lets you choose the target monitor from a dropdown and start/stop monitoring.
+lets you choose the target monitor from a dropdown. After you click Start the
+tool periodically checks the active window and moves it if needed.
 
 ```bash
 python fullscreen_monitor_gui.py
@@ -107,7 +109,7 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 ```
 
 按下 `Ctrl+C` 可停止執行。
-
+程式會每隔半秒檢查目前的作用中視窗是否進入或離開全螢幕。
 程式在背景使用 `win32api.EnumDisplayMonitors(None, None)` 列出所有螢幕，
 若遇到 `EnumDisplayMonitors()` 參數過多的錯誤，請確認已更新到最新版程式。
 
@@ -126,7 +128,8 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 ### 圖形介面版使用方式
 
 若想要簡單的圖形介面，可執行 `fullscreen_monitor_gui.py`。程式會列出所有螢幕
-並提供下拉選單供選擇目標螢幕，按下 Start 後就會開始監聽並移動視窗。
+並提供下拉選單供選擇目標螢幕。按下 Start 後，程式會定期檢查作用中視窗
+是否全螢幕並視需要移動位置。
 
 ```bash
 python fullscreen_monitor_gui.py
