@@ -1,87 +1,48 @@
 # -*- coding: utf-8 -*-
-"""
-Example tool to monitor windows entering fullscreen and move them to a
-specific monitor. This script requires pywin32 and only works on Windows.
+"""Simple tool to move fullscreen windows to a chosen monitor.
+
+This script polls the active window every half second. If that window is in
+fullscreen mode, it will be moved to the specified monitor. When the window
+leaves fullscreen, it is moved back to its original monitor.
 
 Usage:
     python fullscreen_monitor.py [target_monitor_index]
 
-By default, the script moves fullscreen windows to monitor index 1 (the second
-monitor). Monitor indices follow the order returned by EnumDisplayMonitors.
+The default target monitor index is 1 (the second monitor). The script requires
+pywin32 and only works on Windows.
 """
 
 import sys
 import time
-import os
-import json
+
 try:
     import win32api
     import win32con
     import win32gui
-    import win32process
 except ImportError as exc:
     raise SystemExit(
         "This script requires the 'pywin32' package. "
         "Install it with 'pip install pywin32' on Windows."
     ) from exc
 
-# Map of window handle to (orig monitor index, placement, last move time)
-# "last move time" lets us avoid immediately restoring a window that was just
-# moved, which could otherwise cause it to bounce between monitors.
-ORIGINAL_WINDOWS = {}
-
-# How long to wait after moving a window before it can be restored. This
-# prevents rapid toggling if the fullscreen state briefly changes when the
-# window is repositioned.
-RESTORE_DELAY = 1.0
-
 TARGET_MONITOR = 1
-APP_MONITORS = {}
-
 if len(sys.argv) > 1:
     try:
         TARGET_MONITOR = int(sys.argv[1])
     except ValueError:
         pass
 
-# Load optional config mapping process names to monitor indices
-if os.path.exists("config.json"):
-    try:
-        with open("config.json", "r", encoding="utf-8") as fh:
-            APP_MONITORS = {
-                k.lower(): int(v) for k, v in json.load(fh).items()
-            }
-    except Exception:
-        APP_MONITORS = {}
+# List monitor handles and their info once at startup
+MONITORS = []
+for hmon, _hdc, _rect in win32api.EnumDisplayMonitors(None, None):
+    info = win32api.GetMonitorInfo(hmon)
+    MONITORS.append((hmon, info))
 
-
-def list_monitors():
-    """Return a list of (hMonitor, info) for all monitors."""
-    mons = []
-    # call EnumDisplayMonitors with two parameters (HDC and clip rect)
-    # to avoid the legacy callback style that requires four arguments
-    for hMon, _hdc, _rect in win32api.EnumDisplayMonitors(None, None):
-        info = win32api.GetMonitorInfo(hMon)
-        mons.append((hMon, info))
-    return mons
-
-
-MONITORS = list_monitors()
-
-
-def get_primary_monitor_index():
-    """Return the index of the primary monitor."""
-    for i, (_h, info) in enumerate(MONITORS):
-        if info.get("Flags", 0) & win32con.MONITORINFOF_PRIMARY:
-            return i
-    return 0
-
-
-PRIMARY_MONITOR = get_primary_monitor_index()
+# Track each moved window's original monitor
+ORIGINAL_MONITOR = {}
 
 
 def monitor_index_from_hwnd(hwnd):
-    """Return the index of the monitor a window is on."""
     hmon = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
     for i, (h, _info) in enumerate(MONITORS):
         if h == hmon:
@@ -90,58 +51,31 @@ def monitor_index_from_hwnd(hwnd):
 
 
 def is_fullscreen(hwnd):
-    """Return True if the window appears to occupy its entire monitor."""
+    """Return True if the window covers its entire monitor."""
     try:
         if not win32gui.IsWindowVisible(hwnd) or win32gui.IsIconic(hwnd):
             return False
-
         left, top, right, bottom = win32gui.GetWindowRect(hwnd)
         hmon = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
         info = win32api.GetMonitorInfo(hmon)
         m_left, m_top, m_right, m_bottom = info["Monitor"]
-        margin = 8  # tolerate small offsets used by some apps like Photos
-        return (
-            left <= m_left + margin
-            and top <= m_top + margin
-            and right >= m_right - margin
-            and bottom >= m_bottom - margin
-        )
+        return left == m_left and top == m_top and right == m_right and bottom == m_bottom
     except win32gui.error:
         return False
 
 
-def get_process_name(hwnd):
-    """Return the lowercase process name for the given window."""
-    try:
-        _tid, pid = win32process.GetWindowThreadProcessId(hwnd)
-        hproc = win32api.OpenProcess(
-            win32con.PROCESS_QUERY_INFORMATION | win32con.PROCESS_VM_READ,
-            False,
-            pid,
-        )
-        try:
-            exe = win32process.GetModuleFileNameEx(hproc, 0)
-        finally:
-            win32api.CloseHandle(hproc)
-        return os.path.basename(exe).lower()
-    except Exception:
-        return ""
-
 def move_to_monitor(hwnd, index):
-    """Move the given window to the specified monitor index."""
-    if index >= len(MONITORS):
+    if index < 0 or index >= len(MONITORS):
         return
-    hMonitor, info = MONITORS[index]
-    m_left, m_top, m_right, m_bottom = info['Monitor']
-    width = m_right - m_left
-    height = m_bottom - m_top
+    hmon, info = MONITORS[index]
+    m_left, m_top, m_right, m_bottom = info["Monitor"]
     win32gui.SetWindowPos(
         hwnd,
         win32con.HWND_TOP,
         m_left,
         m_top,
-        width,
-        height,
+        m_right - m_left,
+        m_bottom - m_top,
         win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED,
     )
     try:
@@ -150,74 +84,20 @@ def move_to_monitor(hwnd, index):
         pass
 
 
-def handle_window(hwnd):
-    target = TARGET_MONITOR
-    name = get_process_name(hwnd)
-    if name in APP_MONITORS:
-        target = APP_MONITORS[name]
-
-    if is_fullscreen(hwnd):
-        if hwnd not in ORIGINAL_WINDOWS:
-            orig_idx = monitor_index_from_hwnd(hwnd)
-            if orig_idx == target:
-                orig_idx = PRIMARY_MONITOR
-            placement = win32gui.GetWindowPlacement(hwnd)
-            ORIGINAL_WINDOWS[hwnd] = [orig_idx, placement, 0.0]
-        if monitor_index_from_hwnd(hwnd) != target:
-            move_to_monitor(hwnd, target)
-            if hwnd in ORIGINAL_WINDOWS:
-                ORIGINAL_WINDOWS[hwnd][2] = time.time()
-    else:
-        if hwnd in ORIGINAL_WINDOWS:
-            orig_idx, placement, moved = ORIGINAL_WINDOWS[hwnd]
-            if time.time() - moved > RESTORE_DELAY:
-                ORIGINAL_WINDOWS.pop(hwnd, None)
-                if orig_idx >= 0:
-                    move_to_monitor(hwnd, orig_idx)
-                try:
-                    win32gui.SetWindowPlacement(hwnd, placement)
-                except win32gui.error:
-                    pass
-
-
-def restore_windows():
-    """Return windows that were moved back to their original monitor."""
-    now = time.time()
-    for hwnd in list(ORIGINAL_WINDOWS.keys()):
-        try:
-            if not win32gui.IsWindow(hwnd):
-                ORIGINAL_WINDOWS.pop(hwnd, None)
-                continue
-            if not is_fullscreen(hwnd):
-                idx, placement, moved = ORIGINAL_WINDOWS[hwnd]
-                if now - moved > RESTORE_DELAY:
-                    ORIGINAL_WINDOWS.pop(hwnd, None)
+while True:
+    try:
+        hwnd = win32gui.GetForegroundWindow()
+        if hwnd:
+            if is_fullscreen(hwnd):
+                if hwnd not in ORIGINAL_MONITOR:
+                    ORIGINAL_MONITOR[hwnd] = monitor_index_from_hwnd(hwnd)
+                    if ORIGINAL_MONITOR[hwnd] != TARGET_MONITOR:
+                        move_to_monitor(hwnd, TARGET_MONITOR)
+            else:
+                if hwnd in ORIGINAL_MONITOR:
+                    idx = ORIGINAL_MONITOR.pop(hwnd)
                     if idx >= 0:
                         move_to_monitor(hwnd, idx)
-                    try:
-                        win32gui.SetWindowPlacement(hwnd, placement)
-                    except win32gui.error:
-                        pass
-        except win32gui.error:
-            ORIGINAL_WINDOWS.pop(hwnd, None)
-
-
-def check_all_windows():
-    """Enumerate top-level windows and handle those that are fullscreen."""
-    def callback(hwnd, _extra):
-        try:
-            if win32gui.IsWindowVisible(hwnd):
-                handle_window(hwnd)
-        except win32gui.error:
-            pass
-    win32gui.EnumWindows(callback, None)
-
-
-if __name__ == "__main__":
-    try:
-        while True:
-            check_all_windows()
-            restore_windows()
-            time.sleep(0.5)
-    except KeyboardInterrupt:
+    except win32gui.error:
         pass
+    time.sleep(0.5)
