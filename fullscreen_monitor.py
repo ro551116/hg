@@ -72,17 +72,21 @@ def monitor_index_from_hwnd(hwnd):
 
 
 def is_fullscreen(hwnd):
-    """Check if a window covers its monitor's work area."""
-    if not win32gui.IsWindowVisible(hwnd):
-        return False
-    if win32gui.IsIconic(hwnd):
+    """Return True if the window appears to occupy its entire monitor."""
+    if not win32gui.IsWindowVisible(hwnd) or win32gui.IsIconic(hwnd):
         return False
 
     left, top, right, bottom = win32gui.GetWindowRect(hwnd)
     hmon = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
     info = win32api.GetMonitorInfo(hmon)
-    m_left, m_top, m_right, m_bottom = info['Monitor']
-    return (left <= m_left and top <= m_top and right >= m_right and bottom >= m_bottom)
+    m_left, m_top, m_right, m_bottom = info["Monitor"]
+    margin = 2  # tolerate small offsets used by some apps like Photos
+    return (
+        left <= m_left + margin
+        and top <= m_top + margin
+        and right >= m_right - margin
+        and bottom >= m_bottom - margin
+    )
 
 
 def get_process_name(hwnd):
@@ -148,12 +152,18 @@ def restore_windows():
                 move_to_monitor(hwnd, idx)
 
 
+def check_all_windows():
+    """Enumerate top-level windows and handle those that are fullscreen."""
+    def callback(hwnd, _extra):
+        if win32gui.IsWindowVisible(hwnd):
+            handle_window(hwnd)
+    win32gui.EnumWindows(callback, None)
+
+
 if __name__ == "__main__":
     try:
         while True:
-            hwnd = win32gui.GetForegroundWindow()
-            if hwnd:
-                handle_window(hwnd)
+            check_all_windows()
             restore_windows()
             time.sleep(0.5)
     except KeyboardInterrupt:

@@ -42,7 +42,7 @@ def monitor_index_from_hwnd(hwnd, monitors):
 
 
 def is_fullscreen(hwnd):
-    """Check if hwnd covers its monitor's bounds."""
+    """Return True if the window appears to cover the whole monitor."""
     if not win32gui.IsWindowVisible(hwnd) or win32gui.IsIconic(hwnd):
         return False
 
@@ -50,11 +50,12 @@ def is_fullscreen(hwnd):
     hmon = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
     info = win32api.GetMonitorInfo(hmon)
     m_left, m_top, m_right, m_bottom = info["Monitor"]
+    margin = 2
     return (
-        left <= m_left
-        and top <= m_top
-        and right >= m_right
-        and bottom >= m_bottom
+        left <= m_left + margin
+        and top <= m_top + margin
+        and right >= m_right - margin
+        and bottom >= m_bottom - margin
     )
 
 
@@ -114,9 +115,10 @@ class FullscreenMonitorApp:
 
     def monitor_loop(self):
         while self.running:
-            hwnd = win32gui.GetForegroundWindow()
-            if hwnd:
-                self.handle_window(hwnd)
+            def cb(hwnd, _):
+                if win32gui.IsWindowVisible(hwnd):
+                    self.handle_window(hwnd)
+            win32gui.EnumWindows(cb, None)
             for wh in list(ORIGINAL_MONITORS.keys()):
                 if not is_fullscreen(wh):
                     idx = ORIGINAL_MONITORS.pop(wh)

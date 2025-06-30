@@ -45,8 +45,9 @@ python fullscreen_monitor.py 0  # move to the first monitor
 ```
 
 Use `Ctrl+C` to stop the script.
-The tool simply polls the active window every half second to see if it has
-entered or exited fullscreen mode.
+The tool now scans all visible top-level windows every half second so even
+fullscreen windows created in the background (such as the Photos slideshow)
+are detected.
 Internally it lists monitors using `win32api.EnumDisplayMonitors(None, None)`.
 If you see an error mentioning too many arguments for `EnumDisplayMonitors`, make
 sure you are running the latest version of these scripts.
@@ -109,7 +110,8 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 ```
 
 按下 `Ctrl+C` 可停止執行。
-程式會每隔半秒檢查目前的作用中視窗是否進入或離開全螢幕。
+程式會每隔半秒掃描所有可見的頂層視窗，
+即使像「相片」應用程式的全螢幕投影片這類在背景新開的視窗也能被偵測。
 程式在背景使用 `win32api.EnumDisplayMonitors(None, None)` 列出所有螢幕，
 若遇到 `EnumDisplayMonitors()` 參數過多的錯誤，請確認已更新到最新版程式。
 
