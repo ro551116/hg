@@ -53,7 +53,9 @@ will be moved back there when exiting fullscreen. The script also remembers
 each window's original size and position so once fullscreen ends, the window is
 restored exactly where it started instead of remaining maximized on the other
 monitor. After moving, windows are maximized again to ensure slideshows fully
-cover the monitor even when they were created on a different screen.
+cover the monitor even when they were created on a different screen. Windows
+are not moved back immediately after relocating; a short delay prevents
+fullscreen apps from bouncing between monitors while they adjust.
 Internally it lists monitors using `win32api.EnumDisplayMonitors(None, None)`.
 If you see an error mentioning too many arguments for `EnumDisplayMonitors`, make
 sure you are running the latest version of these scripts. The monitor loop also
@@ -128,6 +130,8 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 因此在退出全螢幕時會自動移回主要螢幕。程式也會記錄視窗進入全螢幕前的尺寸和位置，
 當離開全螢幕後即可恢復原來的狀態，避免停留在另一個螢幕的全螢幕大小。
 移動後會再次將視窗最大化，以確保投影片能完全填滿指定的螢幕。
+移動後程式會稍候再判斷是否要移回原螢幕，
+避免部分應用程式在切換全螢幕時出現來回跳動的情形。
 
 若需要針對特定程式指定顯示器，可在同一目錄建立 `config.json`
 檔案（範例檔已附在倉庫中），內容為程式名稱對應到螢幕索引的對照，例如：

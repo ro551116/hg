@@ -20,9 +20,13 @@ except ImportError as exc:
         "Install it with 'pip install pywin32' on Windows."
     ) from exc
 
-# Track each moved window's original monitor index and placement so we can
-# restore it once it leaves fullscreen.
+# Track each moved window's original monitor index, placement and when it was
+# last moved. This lets us avoid immediately restoring a window that was just
+# repositioned, which can otherwise cause rapid toggling.
 ORIGINAL_WINDOWS = {}
+
+# Seconds to wait after moving a window before it's eligible to be restored.
+RESTORE_DELAY = 1.0
 
 
 def list_monitors():
@@ -110,18 +114,22 @@ class FullscreenMonitorApp:
                 if orig == self.target.get():
                     orig = self.primary
                 placement = win32gui.GetWindowPlacement(hwnd)
-                ORIGINAL_WINDOWS[hwnd] = (orig, placement)
+                ORIGINAL_WINDOWS[hwnd] = [orig, placement, 0.0]
             if monitor_index_from_hwnd(hwnd, self.monitors) != self.target.get():
                 move_to_monitor(hwnd, self.target.get(), self.monitors)
+                if hwnd in ORIGINAL_WINDOWS:
+                    ORIGINAL_WINDOWS[hwnd][2] = time.time()
         else:
             if hwnd in ORIGINAL_WINDOWS:
-                idx, placement = ORIGINAL_WINDOWS.pop(hwnd)
-                if idx >= 0:
-                    move_to_monitor(hwnd, idx, self.monitors)
-                try:
-                    win32gui.SetWindowPlacement(hwnd, placement)
-                except win32gui.error:
-                    pass
+                idx, placement, moved = ORIGINAL_WINDOWS[hwnd]
+                if time.time() - moved > RESTORE_DELAY:
+                    ORIGINAL_WINDOWS.pop(hwnd, None)
+                    if idx >= 0:
+                        move_to_monitor(hwnd, idx, self.monitors)
+                    try:
+                        win32gui.SetWindowPlacement(hwnd, placement)
+                    except win32gui.error:
+                        pass
 
     def build_ui(self):
         self.root.title("Fullscreen Monitor Control")
@@ -152,19 +160,22 @@ class FullscreenMonitorApp:
                 except win32gui.error:
                     pass
             win32gui.EnumWindows(cb, None)
+            now = time.time()
             for wh in list(ORIGINAL_WINDOWS.keys()):
                 try:
                     if not win32gui.IsWindow(wh):
                         ORIGINAL_WINDOWS.pop(wh, None)
                         continue
                     if not is_fullscreen(wh):
-                        idx, placement = ORIGINAL_WINDOWS.pop(wh)
-                        if idx >= 0:
-                            move_to_monitor(wh, idx, self.monitors)
-                        try:
-                            win32gui.SetWindowPlacement(wh, placement)
-                        except win32gui.error:
-                            pass
+                        idx, placement, moved = ORIGINAL_WINDOWS[wh]
+                        if now - moved > RESTORE_DELAY:
+                            ORIGINAL_WINDOWS.pop(wh, None)
+                            if idx >= 0:
+                                move_to_monitor(wh, idx, self.monitors)
+                            try:
+                                win32gui.SetWindowPlacement(wh, placement)
+                            except win32gui.error:
+                                pass
                 except win32gui.error:
                     ORIGINAL_WINDOWS.pop(wh, None)
             time.sleep(0.5)

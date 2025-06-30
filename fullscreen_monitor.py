@@ -25,10 +25,15 @@ except ImportError as exc:
         "Install it with 'pip install pywin32' on Windows."
     ) from exc
 
-# Map of window handle to its original monitor index and placement
-# before being moved to the target monitor. This lets us restore the
-# exact position once the window exits fullscreen.
+# Map of window handle to (orig monitor index, placement, last move time)
+# "last move time" lets us avoid immediately restoring a window that was just
+# moved, which could otherwise cause it to bounce between monitors.
 ORIGINAL_WINDOWS = {}
+
+# How long to wait after moving a window before it can be restored. This
+# prevents rapid toggling if the fullscreen state briefly changes when the
+# window is repositioned.
+RESTORE_DELAY = 1.0
 
 TARGET_MONITOR = 1
 APP_MONITORS = {}
@@ -157,35 +162,42 @@ def handle_window(hwnd):
             if orig_idx == target:
                 orig_idx = PRIMARY_MONITOR
             placement = win32gui.GetWindowPlacement(hwnd)
-            ORIGINAL_WINDOWS[hwnd] = (orig_idx, placement)
+            ORIGINAL_WINDOWS[hwnd] = [orig_idx, placement, 0.0]
         if monitor_index_from_hwnd(hwnd) != target:
             move_to_monitor(hwnd, target)
+            if hwnd in ORIGINAL_WINDOWS:
+                ORIGINAL_WINDOWS[hwnd][2] = time.time()
     else:
         if hwnd in ORIGINAL_WINDOWS:
-            orig_idx, placement = ORIGINAL_WINDOWS.pop(hwnd)
-            if orig_idx >= 0:
-                move_to_monitor(hwnd, orig_idx)
-            try:
-                win32gui.SetWindowPlacement(hwnd, placement)
-            except win32gui.error:
-                pass
+            orig_idx, placement, moved = ORIGINAL_WINDOWS[hwnd]
+            if time.time() - moved > RESTORE_DELAY:
+                ORIGINAL_WINDOWS.pop(hwnd, None)
+                if orig_idx >= 0:
+                    move_to_monitor(hwnd, orig_idx)
+                try:
+                    win32gui.SetWindowPlacement(hwnd, placement)
+                except win32gui.error:
+                    pass
 
 
 def restore_windows():
     """Return windows that were moved back to their original monitor."""
+    now = time.time()
     for hwnd in list(ORIGINAL_WINDOWS.keys()):
         try:
             if not win32gui.IsWindow(hwnd):
                 ORIGINAL_WINDOWS.pop(hwnd, None)
                 continue
             if not is_fullscreen(hwnd):
-                idx, placement = ORIGINAL_WINDOWS.pop(hwnd)
-                if idx >= 0:
-                    move_to_monitor(hwnd, idx)
-                try:
-                    win32gui.SetWindowPlacement(hwnd, placement)
-                except win32gui.error:
-                    pass
+                idx, placement, moved = ORIGINAL_WINDOWS[hwnd]
+                if now - moved > RESTORE_DELAY:
+                    ORIGINAL_WINDOWS.pop(hwnd, None)
+                    if idx >= 0:
+                        move_to_monitor(hwnd, idx)
+                    try:
+                        win32gui.SetWindowPlacement(hwnd, placement)
+                    except win32gui.error:
+                        pass
         except win32gui.error:
             ORIGINAL_WINDOWS.pop(hwnd, None)
 
