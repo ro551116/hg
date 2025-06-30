@@ -46,6 +46,10 @@ python fullscreen_monitor.py 0  # move to the first monitor
 
 Use `Ctrl+C` to stop the script.
 
+Internally the script lists monitors using `win32api.EnumDisplayMonitors(None, None)`.
+If you see an error mentioning too many arguments for `EnumDisplayMonitors`, make
+sure you are running the latest version of these scripts.
+
 ### GUI version
 
 If you prefer a small graphical interface, run `fullscreen_monitor_gui.py`. It
@@ -103,6 +107,9 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 ```
 
 按下 `Ctrl+C` 可停止執行。
+
+程式在背景使用 `win32api.EnumDisplayMonitors(None, None)` 列出所有螢幕，
+若遇到 `EnumDisplayMonitors()` 參數過多的錯誤，請確認已更新到最新版程式。
 
 若需要針對特定程式指定顯示器，可在同一目錄建立 `config.json`
 檔案（範例檔已附在倉庫中），內容為程式名稱對應到螢幕索引的對照，例如：

@@ -26,7 +26,8 @@ ORIGINAL_MONITORS = {}
 def list_monitors():
     """Return list of (hMonitor, info)."""
     monitors = []
-    for hmon, _hdc, _rect in win32api.EnumDisplayMonitors():
+    # explicit arguments avoid the callback-style API that expects four params
+    for hmon, _hdc, _rect in win32api.EnumDisplayMonitors(None, None):
         info = win32api.GetMonitorInfo(hmon)
         monitors.append((hmon, info))
     return monitors

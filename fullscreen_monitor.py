@@ -51,7 +51,9 @@ if os.path.exists("config.json"):
 def list_monitors():
     """Return a list of (hMonitor, info) for all monitors."""
     mons = []
-    for hMon, _hdc, _rect in win32api.EnumDisplayMonitors():
+    # call EnumDisplayMonitors with two parameters (HDC and clip rect)
+    # to avoid the legacy callback style that requires four arguments
+    for hMon, _hdc, _rect in win32api.EnumDisplayMonitors(None, None):
         info = win32api.GetMonitorInfo(hMon)
         mons.append((hMon, info))
     return mons
