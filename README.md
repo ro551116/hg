@@ -51,6 +51,8 @@ are detected.
 Internally it lists monitors using `win32api.EnumDisplayMonitors(None, None)`.
 If you see an error mentioning too many arguments for `EnumDisplayMonitors`, make
 sure you are running the latest version of these scripts.
+The monitor loop also handles closed windows gracefully so the tool keeps
+working after a slideshow window exits fullscreen.
 
 ### GUI version
 
@@ -114,6 +116,7 @@ python fullscreen_monitor.py 0  # 移到第一個螢幕
 即使像「相片」應用程式的全螢幕投影片這類在背景新開的視窗也能被偵測。
 程式在背景使用 `win32api.EnumDisplayMonitors(None, None)` 列出所有螢幕，
 若遇到 `EnumDisplayMonitors()` 參數過多的錯誤，請確認已更新到最新版程式。
+新增的錯誤處理可以在全螢幕投影片結束後繼續正常監控，不會因為視窗關閉而停止。
 
 若需要針對特定程式指定顯示器，可在同一目錄建立 `config.json`
 檔案（範例檔已附在倉庫中），內容為程式名稱對應到螢幕索引的對照，例如：
