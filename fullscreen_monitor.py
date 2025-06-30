@@ -94,7 +94,7 @@ def is_fullscreen(hwnd):
         hmon = win32api.MonitorFromWindow(hwnd, win32con.MONITOR_DEFAULTTONEAREST)
         info = win32api.GetMonitorInfo(hmon)
         m_left, m_top, m_right, m_bottom = info["Monitor"]
-        margin = 2  # tolerate small offsets used by some apps like Photos
+        margin = 8  # tolerate small offsets used by some apps like Photos
         return (
             left <= m_left + margin
             and top <= m_top + margin
@@ -139,6 +139,10 @@ def move_to_monitor(hwnd, index):
         height,
         win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED,
     )
+    try:
+        win32gui.ShowWindow(hwnd, win32con.SW_SHOWMAXIMIZED)
+    except win32gui.error:
+        pass
 
 
 def handle_window(hwnd):
