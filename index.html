@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>3D 宴會廳規劃 v4.7b</title>
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans TC","PingFang TC","Heiti TC","Microsoft JhengHei",sans-serif}
+  #renderer{display:block;width:100vw;height:100vh;background:#f6f4ef}
+  #ui{position:fixed;top:10px;left:10px;z-index:10;background:rgba(20,22,26,.92);backdrop-filter:blur(6px);
+      border:1px solid rgba(255,255,255,.08);border-radius:12px;color:#edf1f7;padding:10px;max-width:380px;max-height:86vh;overflow:auto}
+  #ui h1{margin:0 0 6px 0;font-size:14px;display:flex;align-items:center;justify-content:space-between}
+  #ui .row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center}
+  #ui button,#ui select,#ui input[type=number]{background:#171c25;color:#edf1f7;border:1px solid rgba(255,255,255,.1);padding:6px 8px;border-radius:8px;font-size:12px}
+  #ui button{cursor:pointer} #ui button:hover{background:#222838}
+  .badge{background:#445;border-radius:6px;padding:2px 6px;font-size:11px}
+  .section{padding:6px;background:rgba(255,255,255,.03);border-radius:8px}
+  .title{font-size:12px;letter-spacing:.3px;opacity:.9}
+  .hideInFinal{display:block}
+  .finalOnly{display:none}
+  .pill{padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.15);}
+  .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  #selectRect{position:fixed;border:1px dashed #7fb0ff;background:rgba(127,176,255,.12);display:none;pointer-events:none;z-index:9}
+  #footerBar{position:fixed;left:50%;transform:translateX(-50%);bottom:8px;z-index:9;display:flex;gap:6px;align-items:center;background:rgba(16,18,22,.86);border:1px solid rgba(255,255,255,.08);color:#dfe6f2;padding:6px 10px;border-radius:10px;font-size:11px}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+</head>
+<body>
+<canvas id="renderer"></canvas>
+<div id="selectRect"></div>
+
+<!-- 成品模式左側控制 -->
+<div class="section finalOnly" id="finalControls" style="position:fixed;left:10px;top:10px;max-width:380px;z-index:12;background:rgba(16,18,22,.9);border:1px solid rgba(255,255,255,.12);border-radius:12px;color:#eaf1ff">
+  <div class="row" style="gap:8px">
+    <label style="display:flex;align-items:center;gap:6px"><input id="emitOnF" type="checkbox" checked>燈光發光</label>
+    <label style="display:flex;align-items:center;gap:6px">亮度
+      <input id="brightnessF" type="range" min="0.8" max="1.6" value="1.12" step="0.02">
+    </label>
+  </div>
+  <div class="row">
+    <select id="finalThemeF">
+      <option value="neutral" selected>中性</option><option value="warm">暖色</option>
+      <option value="cool">冷色</option><option value="dark">暗場</option>
+    </select>
+    <button id="viewIsoF" class="pill">對角</button>
+    <button id="viewAudF" class="pill">觀眾視角</button>
+    <button id="viewTopFF" class="pill">俯視正射</button>
+    <button id="viewQFF" class="pill">側前30°</button>
+    <button id="backToEdit" class="pill" style="margin-left:auto">返回編輯</button>
+  </div>
+</div>
+
+<div id="ui">
+  <h1>
+    <span>場地規劃 v4.7b</span>
+    <span style="display:flex;gap:6px">
+      <span id="modeBadge" class="badge">編輯</span>
+      <button id="btnFinal">成品模式</button>
+      <button id="toggleUI">隱藏</button>
+    </span>
+  </h1>
+
+  <div class="row">
+    <button id="toggle2D" class="hideInFinal">2D↔3D</button>
+    <button id="basicView" class="hideInFinal">對角</button>
+    <button id="topView" class="hideInFinal">俯視</button>
+    <button id="shot">截圖(JPG)</button>
+  </div>
+
+  <div class="row hideInFinal">
+    <button id="boxSelectToggle">框選模式：關</button>
+    <button id="placeOnStage">貼到舞台</button>
+  </div>
+
+  <div class="section hideInFinal">
+    <div class="row">
+      <span class="title">場地尺寸 (m)</span>
+      長<input id="venueW" type="number" value="36" step="0.5" style="width:60px"/>
+      寬<input id="venueD" type="number" value="24" step="0.5" style="width:60px"/>
+      高<input id="venueH" type="number" value="7" step="0.5" style="width:60px"/>
+      <button id="applyVenue">套用</button>
+    </div>
+    <div class="row">
+      <span class="title">舞台/LED</span>
+      台寬<input id="stageW" type="number" value="16" step="0.5" style="width:60px"/>
+      深<input id="stageD" type="number" value="4" step="0.5" style="width:50px"/>
+      <button id="addStage">+舞台</button>
+      <button id="lockStage" class="pill">鎖舞台（預設鎖）</button>
+      LED寬<input id="ledW" type="number" value="14" step="0.5" style="width:50px"/>
+      <button id="addLED">+LED（手動）</button>
+    </div>
+  </div>
+
+  <div class="section hideInFinal">
+    <div class="row">
+      <span class="title">桌型一鍵排（圓桌呎制）</span>
+      <select id="layoutType">
+        <option value="banquet" selected>宴會圓桌</option>
+        <option value="classroom">教室 IBM</option>
+      </select>
+      <span id="banquetSet">
+        直徑<select id="tableDiaFt" style="width:80px">
+          <option value="5">5 呎</option><option value="5.5">5.5 呎</option>
+          <option value="6" selected>6 呎</option>
+        </select>
+        桌數<input id="tableCount" type="number" value="40" step="1" style="width:60px"/>
+      </span>
+      <span id="classSet" style="display:none">
+        W<input id="ibmW" type="number" value="1.8" step="0.1" style="width:60px"/>
+        D<input id="ibmD" type="number" value="0.6" step="0.1" style="width:60px"/>
+        桌數<input id="classCount" type="number" value="60" step="1" style="width:60px"/>
+      </span>
+      <button id="placeTables">排入</button>
+    </div>
+    <div class="row">
+      中央走道<input id="aisle" type="number" value="3" step="0.5" style="width:60px"/>
+      左右退縮<input id="sideMargin" type="number" value="1.2" step="0.1" style="width:60px"/>
+      前<input id="frontMargin" type="number" value="2.0" step="0.1" style="width:60px"/>
+      後<input id="rearMargin" type="number" value="1.2" step="0.1" style="width:60px"/>
+    </div>
+  </div>
+
+  <div class="section hideInFinal">
+    <div class="title" style="margin-bottom:6px">音響（簡化參數）</div>
+    <div class="grid2">
+      <label>外場喇叭數（總數）</label><input id="fohCount" type="number" value="2" step="1">
+      <label>舞台監聽數</label><input id="wedgeCount" type="number" value="4" step="1">
+      <label>FOH X 位移</label><input id="fohOffsetX" type="number" value="6" step="0.1">
+      <label>FOH Z（距台前）</label><input id="fohZ" type="number" value="0.8" step="0.1">
+    </div>
+    <div class="row"><button id="buildAudio">生成音響</button> <button id="clearAudio">清除音響</button></div>
+    <div class="row">
+      <button id="btnAddSpeaker15">+15吋喇叭(含腳架)</button>
+      <button id="btnAddWedge">+監聽</button>
+      <button id="btnAddMixer">+混音器</button>
+    </div>
+  </div>
+
+  <div class="section hideInFinal">
+    <div class="title" style="margin-bottom:6px">燈光（簡化參數）</div>
+    <div class="grid2">
+      <label>移頭數</label><input id="mhCount" type="number" value="6" step="1">
+      <label>PAR 數</label><input id="parCount" type="number" value="12" step="1">
+      <label>Blinder 數</label><input id="blinderCount" type="number" value="4" step="1">
+      <label>Strobe 數</label><input id="strobeCount" type="number" value="2" step="1">
+      <label>LED Bar 數</label><input id="barCount" type="number" value="6" step="1">
+    </div>
+    <div class="row"><button id="buildLight">生成燈光</button> <button id="clearLight">清除燈光</button></div>
+    <div class="row">
+      <button id="btnAddMH">+移頭</button><button id="btnAddPAR">+PAR</button>
+      <button id="btnAddBlinder">+Blinder</button><button id="btnAddStrobe">+Strobe</button>
+      <button id="btnAddBar">+LED Bar</button><button id="btnAddTrussT">+T 型 truss</button>
+      <button id="btnAddLight">+燈控台</button>
+    </div>
+  </div>
+
+  <div class="row hideInFinal">
+    <button id="modeXZ">平移XZ(W)</button><button id="modeY">升降Y(Q)</button>
+    <button id="modeR">旋轉(E)</button><button id="modeS">縮放(R)</button>
+    <button id="duplicate">複製(Ctrl/D)</button><button id="delete">刪除(Del)</button>
+    <select id="snap"><option value="0">對齊：關</option><option value="0.25" selected>0.25m</option><option value="0.5">0.5m</option><option value="1">1m</option></select>
+  </div>
+</div>
+
+<div id="footerBar"> <span id="modeHint">編輯：一般</span> | FPS: <span id="fps">—</span> <span id="status"></span> </div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* === 基本 === */
+const fpsEl=document.getElementById('fps'); const statusEl=document.getElementById('status');
+const hintEl=document.createElement('span'); // 簡化
+const canvas=document.getElementById('renderer');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,preserveDrawingBuffer:true,logarithmicDepthBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setSize(innerWidth,innerHeight);
+renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.shadowMap.enabled=true; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.12;
+
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0xf6f4ef);
+const perspCam=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.05,5000);
+const orthoCam=new THREE.OrthographicCamera(-20,20,12,-12,.1,5000); let camera=perspCam;
+const controls=new OrbitControls(perspCam,renderer.domElement); controls.enableDamping=true; controls.dampingFactor=0.08;
+
+const amb=new THREE.HemisphereLight(0xffffff,0x777777,1.02); scene.add(amb);
+const dir=new THREE.DirectionalLight(0xffffff,1.28); dir.position.set(24,36,12); dir.castShadow=true; dir.shadow.mapSize.set(2048,2048); scene.add(dir);
+scene.fog=new THREE.FogExp2(0xf6f4ef, 0.0016);
+
+const world=new THREE.Group(); scene.add(world);
+const audioGroup=new THREE.Group(); audioGroup.name='AudioGroup'; world.add(audioGroup);
+const lightGroup=new THREE.Group(); lightGroup.name='LightGroup'; world.add(lightGroup);
+
+/* === 調色與材質 === */
+const basePalette={floor:0xebe7e1,carpet:0xded8cf,wall:0xf5f2ec,stage:0xd9c8a6,screen:0x586070,truss:0x2f3440,
+  moving:0x2a3e60,par:0x3b3f48,speaker:0x14171c,mixer:0x2a5c4a,lightdesk:0x5a4a2a,tablecloth:0xefede7,chair:0xfaf9f7,metal:0x2f3440,blinder:0xf2e2b8};
+let palette={...basePalette};
+const mats={
+  carpet:new THREE.MeshStandardMaterial({color:palette.carpet,roughness:.98}),
+  wall:new THREE.MeshStandardMaterial({color:palette.wall,roughness:.94}),
+  stage:new THREE.MeshStandardMaterial({color:palette.stage,roughness:.85}),
+  screen:new THREE.MeshStandardMaterial({color:palette.screen,roughness:1}),
+  metal:new THREE.MeshStandardMaterial({color:palette.metal,roughness:.5,metalness:.85}),
+  black:new THREE.MeshStandardMaterial({color:palette.speaker,roughness:.6,metalness:.3}),
+  cloth:new THREE.MeshStandardMaterial({color:palette.tablecloth,roughness:.97}),
+  chair:new THREE.MeshStandardMaterial({color:palette.chair,roughness:.96}),
+  rubber:new THREE.MeshStandardMaterial({color:0x2b2f36,roughness:.9}),
+  blinder:new THREE.MeshStandardMaterial({color:palette.blinder,emissive:0xffb84d,emissiveIntensity:.6,roughness:.7}),
+  strobe:new THREE.MeshStandardMaterial({color:0xf0f0f0,emissive:0xffffff,emissiveIntensity:.2,roughness:.8})
+};
+function applyTheme(theme){
+  if(theme==='neutral') palette={...basePalette};
+  if(theme==='warm')    palette={...basePalette, carpet:0xdccfbd, stage:0xd8c2a0};
+  if(theme==='cool')    palette={...basePalette, carpet:0xd5dbe6, stage:0xcabfb0};
+  if(theme==='dark')    palette={...basePalette, carpet:0x2a2e35, wall:0x3a404a, floor:0x2a2e35, stage:0x6b5a3a};
+  mats.carpet.color.set(palette.carpet); mats.wall.color.set(palette.wall); mats.stage.color.set(palette.stage);
+}
+
+/* === 場地/牆/格線 === */
+let ground=null,gridGroup=null,shell=null; const currentVenue={w:36,d:24,h:7,step:1,withWalls:true};
+function makeGround(w,d){const g=new THREE.Mesh(new THREE.PlaneGeometry(w,d),mats.carpet); g.rotation.x=-Math.PI/2; g.receiveShadow=true; return g;}
+function makeGrid(w,d,step=1){const g=new THREE.Group(); const y=.002; const mat=new THREE.LineBasicMaterial({color:0xcfd5dd});
+  const hw=w/2, hd=d/2; for(let x=-hw;x<=hw+1e-6;x+=step){const geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,y,-hd),new THREE.Vector3(x,y,hd)]); g.add(new THREE.Line(geo,mat));}
+  for(let z=-hd;z<=hd+1e-6;z+=step){const geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-hw,y,z),new THREE.Vector3(hw,y,z)]); g.add(new THREE.Line(geo,mat));}
+  return g;}
+function makeShell(w,d,h){const t=.3; const box=(W,H,D)=>new THREE.Mesh(new THREE.BoxGeometry(W,H,D),mats.wall);
+  const g=new THREE.Group(); const back=box(w,h,t); back.position.set(0,h/2,-d/2-t/2);
+  const front=box(w,h,t); front.position.set(0,h/2,d/2+t/2);
+  const left=box(t,h,d); left.position.set(-w/2-t/2,h/2,0);
+  const right=box(t,h,d); right.position.set(w/2+t/2,h/2,0);
+  g.add(back,front,left,right); return g;}
+function rebuildVenue(){
+  const {w,d,h,step}=currentVenue;
+  if(ground)scene.remove(ground); if(gridGroup)scene.remove(gridGroup); if(shell)scene.remove(shell);
+  ground=makeGround(w,d); gridGroup=makeGrid(w,d,step); shell=makeShell(w,d,h);
+  scene.add(ground,gridGroup,shell); controls.target.set(0,.9,0); viewIso();
+}
+
+/* === 舞台/桌椅 === */
+function roundedBox(w,h,d,r=.03,seg=2){return new RoundedBoxGeometry(w,h,d,r,seg)}
+function createStage(w=16,d=4,h=1){const g=new THREE.Group(); g.name='Stage';
+  const deck=new THREE.Mesh(roundedBox(w,h,d,.06,3),mats.stage); deck.position.y=h/2; g.add(deck);
+  g.userData={w,d,h,kind:'stage',collide:false,locked:true,selectable:false}; return g;}
+function createLED(W=14,H=4){const g=new THREE.Group(); const p=new THREE.Mesh(new THREE.PlaneGeometry(W,H),mats.screen); p.position.set(0,H/2+1.2,-.01); g.add(p);
+  g.name='LEDWall'; g.userData={kind:'led',collide:false,selectable:true}; return g;}
+const ft=0.3048;
+function createBanquet(d=1.8){const g=new THREE.Group(); g.name=`BanquetSet_${d.toFixed(3)}`;
+  const top=new THREE.Mesh(new THREE.CylinderGeometry(d/2,d/2,.03,28),mats.cloth); top.position.y=.77;
+  const sk=new THREE.Mesh(new THREE.CylinderGeometry(d/2+.02,d/2+.02,.75,28,8,true),mats.cloth); sk.position.y=.375; g.add(sk,top);
+  g.userData={kind:'table',collide:true,selectable:true}; return g;}
+function createIBM(w=1.8,d=.6){const g=new THREE.Group(); g.name='IBMTable';
+  const top=new THREE.Mesh(roundedBox(w,.05,d,.03,2),mats.cloth); top.position.y=.76; g.add(top);
+  g.userData={kind:'table',collide:true,selectable:true}; return g;}
+function createChair(){const g=new THREE.Group();
+  const seat=new THREE.Mesh(roundedBox(.44,.05,.44,.04,2),mats.chair); seat.position.y=.46;
+  const back=new THREE.Mesh(roundedBox(.44,.5,.04,.02,2),mats.chair); back.position.set(0,.73,-.2);
+  const legs=new THREE.Mesh(roundedBox(.38,.42,.38,.02,2),new THREE.MeshStandardMaterial({color:0xdedbd7,roughness:.9})); legs.position.y=.21;
+  g.add(legs,seat,back); g.userData={kind:'chair',collide:false,selectable:false}; return g;}
+function createChairRing(o){const d=parseFloat(o.name.split('_')[1]); const r=(d/2)+0.28; const cnt=10;
+  const chairs=new THREE.Group(); for(let i=0;i<cnt;i++){const th=i/cnt*Math.PI*2; const c=createChair(); c.position.set(Math.cos(th)*r,0,Math.sin(th)*r); c.lookAt(0,0,0); chairs.add(c);} o.add(chairs); o.userData.chairs=chairs;}
+function ensureChairs(o){ if(o.userData.chairs) return; if(o.name?.startsWith('BanquetSet_')) createChairRing(o); if(o.name==='IBMTable'){ const box=new THREE.Box3().setFromObject(o), size=new THREE.Vector3(); box.getSize(size);
+  const span=size.x-0.4; const ppl=Math.max(2,Math.floor(span/0.6)); const dz=size.z/2 + 0.35; const chairs=new THREE.Group();
+  for(let i=0;i<ppl;i++){const x=(-span/2)+(i+0.5)*(span/ppl); const c=createChair(); c.position.set(x,0,dz); c.rotation.y=Math.PI; chairs.add(c);} o.add(chairs); o.userData.chairs=chairs; } }
+function setChairsVisible(on){ world.children.forEach(o=>{ if(o.name?.startsWith('BanquetSet_')||o.name==='IBMTable'){ ensureChairs(o); if(o.userData.chairs) o.userData.chairs.visible=on; } });}
+
+/* === 燈光音響 === */
+function beamCone(color=0xfff7e6,len=5.2){return new THREE.Mesh(new THREE.ConeGeometry(.22,len,24,1,true),new THREE.MeshStandardMaterial({color,transparent:true,opacity:.12,roughness:1}))}
+function createMovingHead(){const g=new THREE.Group(); g.name='MovingHead';
+  const base=new THREE.Mesh(roundedBox(.38,.12,.30,.03,3),new THREE.MeshStandardMaterial({color:0x1e2f4a,roughness:.5,metalness:.2})); base.position.y=.06;
+  const head=new THREE.Mesh(roundedBox(.30,.20,.24,.06,3),new THREE.MeshStandardMaterial({color:0x253e67,roughness:.48,metalness:.25})); head.position.y=.32;
+  const lens=new THREE.Mesh(new THREE.CylinderGeometry(.11,.11,.02,24),mats.rubber); lens.rotation.z=Math.PI/2; lens.position.set(.22,.32,0);
+  const light=new THREE.SpotLight(0xfff7e6,1.2,28,THREE.MathUtils.degToRad(15),.3,1.8); light.position.set(.18,.32,0); const target=new THREE.Object3D(); target.position.set(0,-1.2,-6); light.target=target; light.name='Emitter';
+  const cone=beamCone(0xfff7e6,5.2); cone.position.set(.2,.32,-2.6); cone.name='Beam'; g.add(base,head,lens,light,target,cone);
+  g.userData={kind:'fixture',collide:true,selectable:true}; return g;}
+function createPar(){const g=new THREE.Group(); g.name='PAR64';
+  const can=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.3,24,1,true),new THREE.MeshStandardMaterial({color:palette.par,roughness:.6,metalness:.1})); can.rotation.z=Math.PI/2; can.position.y=.32;
+  const light=new THREE.SpotLight(0xfff2cc,0.8,18,THREE.MathUtils.degToRad(28),.4,1.6); light.position.set(.12,.32,0); light.name='Emitter';
+  const cone=beamCone(0xfff2cc,4.0); cone.position.set(.12,.32,-1.8); cone.name='Beam'; g.add(can,light,cone); g.userData={kind:'fixture',collide:true,selectable:true}; return g;}
+function createBlinder(){const g=new THREE.Group(); g.name='Blinder2x2';
+  for(let i=0;i<2;i++)for(let j=0;j<2;j++){const cell=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.06,24),mats.blinder); cell.rotation.z=Math.PI/2; cell.position.set(i*.32-.16,.5,j*.32-.16); g.add(cell);}
+  g.userData={kind:'fixture',collide:true,selectable:true,isEmitMat:true}; return g;}
+function createStrobe(){const g=new THREE.Group(); g.name='Strobe'; const body=new THREE.Mesh(roundedBox(.5,.18,.2,.02,2),mats.strobe); body.position.y=.1; g.add(body);
+  g.userData={kind:'fixture',collide:true,selectable:true,isEmitMat:true}; return g;}
+function createLedBar(){const g=new THREE.Group(); g.name='LEDWashBar';
+  const body=new THREE.Mesh(roundedBox(1.0,.1,.1,.02,2),new THREE.MeshStandardMaterial({color:0x2f3744,roughness:.6,metalness:.2,emissive:0x88aaff,emissiveIntensity:.08})); body.position.y=.05; g.add(body);
+  g.userData={kind:'fixture',collide:true,selectable:true,isEmitMat:true}; return g;}
+function createSpeaker15Stand(){const g=new THREE.Group(); g.name='Speaker15Stand';
+  const h=1.6; const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,h,12),mats.metal); pole.position.y=h/2; g.add(pole);
+  const legGeo=new THREE.CylinderGeometry(0.015,0.015,0.7,8);
+  for(let i=0;i<3;i++){const leg=new THREE.Mesh(legGeo,mats.metal); leg.position.set(Math.cos(i*2*Math.PI/3)*0.35,0.1,Math.sin(i*2*Math.PI/3)*0.35); leg.rotation.z=Math.PI/2.6; leg.rotation.y=i*2*Math.PI/3; g.add(leg);}
+  const cab=new THREE.Mesh(roundedBox(0.45,0.70,0.40,0.04,2),mats.black); cab.position.y=h+0.35; g.add(cab);
+  g.userData={kind:'audio',collide:true,selectable:true}; return g;}
+function createWedge(){const g=new THREE.Group(); g.name='MonitorWedge'; const w=.55,h=.34,d=.45; const wedge=new THREE.Mesh(roundedBox(w,h,d,.04,2),mats.black); wedge.position.y=h/2; g.add(wedge);
+  g.userData={kind:'audio',collide:true,selectable:true}; return g;}
+function createMixer(){const g=new THREE.Group(); g.name='Mixer32ch'; const w=1.2,d=.8,h=.15; const deck=new THREE.Mesh(roundedBox(w,h,d,.03,2),new THREE.MeshStandardMaterial({color:palette.mixer,roughness:.7})); deck.position.y=h/2; g.add(deck);
+  g.userData={kind:'console',collide:true,selectable:true}; return g;}
+function createLightConsole(){const g=new THREE.Group(); g.name='LightConsole'; const w=1.0,d=.7,h=.12; const deck=new THREE.Mesh(roundedBox(w,h,d,.03,2),new THREE.MeshStandardMaterial({color:palette.lightdesk,roughness:.75})); deck.position.y=h/2; g.add(deck);
+  g.userData={kind:'console',collide:true,selectable:true}; return g;}
+function createTrussT(len=8,h=2){const g=new THREE.Group(); g.name='TrussT';
+  const col=new THREE.Mesh(roundedBox(.30,h,.30,.04,2),mats.metal); col.position.y=h/2;
+  const bar=new THREE.Mesh(roundedBox(len,.25,.25,.04,2),mats.metal); bar.position.set(0,h-.12,0);
+  g.add(col,bar); g.userData={kind:'truss',collide:true,selectable:true,trussLen:len,trussH:h}; return g;}
+
+/* === 支撐面與貼齊 === */
+function getSupportYAt(x,z){let y=0;world.children.forEach(st=>{if(st.name==='Stage'){const {w,d,h}=st.userData;const cx=st.position.x,cz=st.position.z;
+  if(Math.abs(x-cx)<=w/2+1e-6 && Math.abs(z-cz)<=d/2+1e-6) y=Math.max(y,(st.position.y||0)+h);}}); return y;}
+function clampToSurface(obj){ const box=new THREE.Box3().setFromObject(obj);
+  const pts=[ new THREE.Vector3(box.min.x,0,box.min.z), new THREE.Vector3(box.max.x,0,box.min.z), new THREE.Vector3(box.min.x,0,box.max.z), new THREE.Vector3(box.max.x,0,box.max.z), new THREE.Vector3((box.min.x+box.max.x)/2,0,(box.min.z+box.max.z)/2) ];
+  let sup=0; pts.forEach(p=>{sup=Math.max(sup,getSupportYAt(p.x,p.z));}); const delta=sup-box.min.y; if(Math.abs(delta)>1e-3) obj.position.y+=delta; }
+
+/* === 一鍵排座 === */
+function genCenters(start,end,pitch){const arr=[]; for(let x=start;x<=end+1e-6;x+=pitch)arr.push(x); return arr;}
+function stageFrontZ(){const st=world.children.find(o=>o.name==='Stage'); return st? st.position.z + (st.userData?.d||4)/2 : -currentVenue.d/2 + 2;}
+function placeBanquet(){
+  const dia=(parseFloat(document.getElementById('tableDiaFt').value)||6)*ft, count=parseInt(document.getElementById('tableCount').value)||40;
+  const aisle=parseFloat(document.getElementById('aisle').value)||3, side=parseFloat(document.getElementById('sideMargin').value)||1.2;
+  const front=parseFloat(document.getElementById('frontMargin').value)||2.0, rear=parseFloat(document.getElementById('rearMargin').value)||1.2;
+  const pitch=dia+0.6*2; const zFrom=stageFrontZ()+front;
+  const zMin=zFrom+dia/2, zMax=currentVenue.d/2-rear-dia/2, xMin=-currentVenue.w/2+side+dia/2, xMax=currentVenue.w/2-side-dia/2, mid=aisle/2;
+  [...world.children.filter(c=>c.name?.startsWith('BanquetSet_')||c.name==='IBMTable')].forEach(c=>world.remove(c));
+  const zC=genCenters(zMin,zMax,pitch), left=genCenters(xMin,-mid-dia/2,pitch), right=genCenters(mid+dia/2,xMax,pitch);
+  let placed=0; outer: for(const z of zC){ for(const x of left){const t=createBanquet(dia); t.position.set(x,0,z); world.add(t); if(++placed>=count)break outer;}
+                                    for(const x of right){const t=createBanquet(dia); t.position.set(x,0,z); world.add(t); if(++placed>=count)break outer;} }
+}
+function placeClassroom(){
+  const w=parseFloat(document.getElementById('ibmW').value)||1.8, d=parseFloat(document.getElementById('ibmD').value)||0.6, count=parseInt(document.getElementById('classCount').value)||60;
+  const aisle=parseFloat(document.getElementById('aisle').value)||3, side=parseFloat(document.getElementById('sideMargin').value)||1.2;
+  const front=parseFloat(document.getElementById('frontMargin').value)||2.0, rear=parseFloat(document.getElementById('rearMargin').value)||1.2;
+  const zFrom=stageFrontZ()+front, pitchZ=d+1.1, pitchX=w+1.2;
+  const zMin=zFrom+d/2, zMax=currentVenue.d/2-rear-d/2, xMin=-currentVenue.w/2+side+w/2, xMax=currentVenue.w/2-side-w/2, mid=aisle/2;
+  [...world.children.filter(c=>c.name?.startsWith('BanquetSet_')||c.name==='IBMTable')].forEach(c=>world.remove(c));
+  const zC=genCenters(zMin,zMax,pitchZ), left=genCenters(xMin,-mid-w/2,pitchX), right=genCenters(mid+w/2,xMax,pitchX);
+  let placed=0; outer: for(const z of zC){ for(const x of left){const t=createIBM(w,d); t.position.set(x,0,z); world.add(t); if(++placed>=count)break outer;}
+                                    for(const x of right){const t=createIBM(w,d); t.position.set(x,0,z); world.add(t); if(++placed>=count)break outer;} }
+}
+
+/* === 一鍵生成音響/燈光 === */
+function clearGroup(g){ while(g.children.length) g.remove(g.children[0]); }
+function buildAudio(){
+  clearGroup(audioGroup);
+  const total=parseInt(document.getElementById('fohCount').value)||2;
+  const offX=parseFloat(document.getElementById('fohOffsetX').value)||6;
+  const zOff=parseFloat(document.getElementById('fohZ').value)||0.8;
+  const wedges=parseInt(document.getElementById('wedgeCount').value)||4;
+  const z0=stageFrontZ(); const perSide=Math.ceil(total/2);
+  for(let s of [-1,1]) for(let i=0;i<perSide;i++){const sp=createSpeaker15Stand(); sp.position.set(s*(offX+i*1.2),0,z0+zOff); audioGroup.add(sp);}
+  const st=world.children.find(o=>o.name==='Stage');
+  if(st){ const {w:sw,d:sd,h:sh}=st.userData; const span=Math.max(0,sw-2.0); const step=wedges>1? span/(wedges-1):0;
+    for(let i=0;i<wedges;i++){const w=createWedge(); w.position.set(st.position.x-span/2+i*step, st.position.y+sh+0.0001, st.position.z+sd/2-1.0); audioGroup.add(w); clampToSurface(w);} }
+}
+function buildLight(){
+  clearGroup(lightGroup);
+  const mhs=parseInt(document.getElementById('mhCount').value)||6, pars=parseInt(document.getElementById('parCount').value)||12,
+        blinds=parseInt(document.getElementById('blinderCount').value)||4, strobes=parseInt(document.getElementById('strobeCount').value)||2,
+        bars=parseInt(document.getElementById('barCount').value)||6;
+  const z0=stageFrontZ();
+  const mhSpan=12, mhStep=mhs>1? mhSpan/(mhs-1):0; for(let i=0;i<mhs;i++){const mh=createMovingHead(); mh.position.set(-mhSpan/2+i*mhStep,1.0,z0+1.2); lightGroup.add(mh);}
+  for(let i=0;i<pars;i++){const p=createPar(); p.position.set(-6+(i%12),2.0,z0); p.rotation.y=Math.PI; lightGroup.add(p);}
+  const bSpan=10, bStep=blinds>1? bSpan/(blinds-1):0; for(let i=0;i<blinds;i++){const b=createBlinder(); b.position.set(-bSpan/2+i*bStep,2.0,z0-0.3); lightGroup.add(b);}
+  for(let i=0;i<strobes;i++){const s=createStrobe(); s.position.set(-1+i*2,1.8,z0-0.2); lightGroup.add(s);}
+  for(let i=0;i<bars;i++){const bar=createLedBar(); bar.position.set(-6 + (i%6)*2.0, 0.1, z0+0.6 + Math.floor(i/6)*0.6); lightGroup.add(bar);}
+}
+function setEmission(on){
+  lightGroup.traverse(n=>{ if(n.isSpotLight && n.name==='Emitter') n.intensity=on? (n.intensity||1):0;
+                           if(n.name==='Beam') n.visible=on;
+                           if(n.material && (n.parent?.userData?.isEmitMat)) n.material.emissiveIntensity=on?0.6:0.05; });
+}
+
+/* === 選取/移動/框選 === */
+let selection=null; let selectionSet=new Set(); const ray=new THREE.Raycaster(),ptr=new THREE.Vector2(); let pickEnabled=true;
+const tCtrl=new TransformControls(perspCam,renderer.domElement); tCtrl.setSize(1.35); tCtrl.setTranslationSnap(0.25); scene.add(tCtrl);
+tCtrl.addEventListener('dragging-changed',e=>controls.enabled=!e.value);
+let dragStartMap=new Map();
+tCtrl.addEventListener('mouseDown',()=>{ dragStartMap.clear(); (selectionSet.size? selectionSet:[selection]).forEach(o=>o&&dragStartMap.set(o,o.position.clone())); });
+tCtrl.addEventListener('dragging-changed',e=>{
+  if(!e.value){ const objs = selectionSet.size>0? Array.from(selectionSet) : (selection? [selection] : []);
+    const colliders = collidersOfWorld(new Set(objs)); let collided=false;
+    objs.forEach(o=>{ if(hasCollision(o,colliders)){ const p=dragStartMap.get(o); if(p) o.position.copy(p); collided=true; } clampToSurface(o); });
+    if(collided) console.log('重疊，已回復'); }
+});
+function setTranslateXZ(){ tCtrl.setMode('translate'); tCtrl.showX=true; tCtrl.showZ=true; tCtrl.showY=false; document.getElementById('modeHint').textContent='編輯：平移XZ'; }
+function setTranslateY(){ tCtrl.setMode('translate'); tCtrl.showX=false; tCtrl.showZ=false; tCtrl.showY=true; document.getElementById('modeHint').textContent='編輯：升降Y'; }
+document.getElementById('modeXZ').onclick=setTranslateXZ; document.getElementById('modeY').onclick=setTranslateY;
+document.getElementById('modeR').onclick=()=>{tCtrl.setMode('rotate'); document.getElementById('modeHint').textContent='編輯：旋轉';};
+document.getElementById('modeS').onclick=()=>{tCtrl.setMode('scale'); document.getElementById('modeHint').textContent='編輯：縮放';};
+function pickAtClient(e){ const r=renderer.domElement.getBoundingClientRect(); ptr.x=((e.clientX-r.left)/r.width)*2-1; ptr.y=-((e.clientY-r.top)/r.height)*2+1; ray.setFromCamera(ptr,camera);
+  const hits=ray.intersectObjects(world.children,true); let picked=null;
+  function nearestSelectable(o){ let cand=null; while(o){ if(o.userData&&o.userData.selectable) cand=o; if(o.parent===world) break; o=o.parent; } return cand; }
+  for(const h of hits){ let o=nearestSelectable(h.object); if(o){ picked=o; break; } } return picked; }
+function setSelectionSingle(o){ selectionSet.clear(); if(o) selectionSet.add(o); selection=o||null; tCtrl.detach(); if(o){ tCtrl.attach(o); setTranslateXZ(); } statusSel(); }
+renderer.domElement.addEventListener('pointerdown',e=>{ if(!pickEnabled||boxMode) return; const p=pickAtClient(e); setSelectionSingle(p||null);});
+function statusSel(){ if(selection){ const p=selection.position; statusEl.textContent=` | ${selection.name} @ (${p.x.toFixed(2)},${p.y.toFixed(2)},${p.z.toFixed(2)})`; } else statusEl.textContent=''; }
+function boxOf(o){return new THREE.Box3().setFromObject(o)}
+function inter(a,b){const A=boxOf(a),B=boxOf(b);return (A.max.x>B.min.x&&A.min.x<B.max.x&&A.max.z>B.min.z&&A.min.z<B.max.z);}
+function collidersOfWorld(ex=new Set()){const arr=[];world.traverse(o=>{if(o.userData&&o.userData.collide&&o.userData.selectable&&!ex.has(o))arr.push(o);});return arr;}
+function hasCollision(o,cs){for(const other of cs){if(other!==o&&inter(o,other))return true;}return false;}
+
+/* 框選 */
+let boxMode=false; const boxBtn=document.getElementById('boxSelectToggle'); const selectRect=document.getElementById('selectRect');
+boxBtn.onclick=()=>{ boxMode=!boxMode; boxBtn.textContent=`框選模式：${boxMode?'開':'關'}`; };
+let dragStart=null, dragRect=null;
+renderer.domElement.addEventListener('pointerdown',e=>{ if(!boxMode) return; e.preventDefault(); controls.enabled=false; dragStart={x:e.clientX,y:e.clientY}; selectRect.style.display='block';});
+renderer.domElement.addEventListener('pointermove',e=>{ if(!boxMode||!dragStart) return; const x=Math.min(e.clientX,dragStart.x), y=Math.min(e.clientY,dragStart.y);
+  const w=Math.abs(e.clientX-dragStart.x), h=Math.abs(e.clientY-dragStart.y); Object.assign(selectRect.style,{left:x+'px',top:y+'px',width:w+'px',height:h+'px'}); dragRect={xmin:x,xmax:x+w,ymin:y,ymax:y+h};});
+window.addEventListener('keyup',e=>{ if(e.key==='Escape'&&boxMode){ boxMode=false; boxBtn.textContent='框選模式：關'; selectRect.style.display='none'; dragStart=null; dragRect=null; controls.enabled=true; }});
+function ndcFromClient(x,y){const r=renderer.domElement.getBoundingClientRect(); return {x:((x-r.left)/r.width)*2-1,y:-(y-r.top)/r.height*2+1};}
+function ndcRectOfObject(o){const b=new THREE.Box3().setFromObject(o); const pts=[new THREE.Vector3(b.min.x,b.min.y,b.min.z),new THREE.Vector3(b.max.x,b.max.y,b.max.z)];
+  let xmin=+1,xmax=-1,ymin=+1,ymax=-1; for(const v of [b.min,b.max]){ const p1=new THREE.Vector3(v.x,b.min.y,v.z).project(camera), p2=new THREE.Vector3(v.x,b.max.y,v.z).project(camera);
+    xmin=Math.min(xmin,p1.x,p2.x); xmax=Math.max(xmax,p1.x,p2.x); ymin=Math.min(ymin,p1.y,p2.y); ymax=Math.max(ymax,p1.y,p2.y);} return {xmin,xmax,ymin,ymax};}
+function intersectRect(a,b){return !(a.xmax<b.xmin||a.xmin>b.xmax||a.ymax<b.ymin||a.ymin>b.ymax);}
+renderer.domElement.addEventListener('pointerup',e=>{ if(!boxMode||!dragStart) return; controls.enabled=true; selectRect.style.display='none';
+  const sel={xmin:ndcFromClient(dragRect.xmin,dragRect.ymax).x,xmax:ndcFromClient(dragRect.xmax,dragRect.ymin).x,ymin:ndcFromClient(dragRect.xmin,dragRect.ymax).y,ymax:ndcFromClient(dragRect.xmax,dragRect.ymin).y};
+  const set=new Set(); world.children.forEach(o=>{ if(o.userData?.selectable){ const r=ndcRectOfObject(o); if(intersectRect(r,sel)) set.add(o);} }); selectionSet=set; if(set.size===1){const [o]=set; setSelectionSingle(o);} else { tCtrl.detach(); selection=null; } dragStart=null; dragRect=null;});
+
+/* 輔助操作 */
+document.getElementById('duplicate').onclick=()=>{ if(!selection) return; const loader=new THREE.ObjectLoader(); const copy=loader.parse(selection.toJSON()); copy.position.x+=0.5; copy.position.z+=0.5; clampToSurface(copy); (selection.parent||world).add(copy); setSelectionSingle(copy); };
+document.getElementById('delete').onclick=()=>{ if(!selection) return; (selection.parent||world).remove(selection); setSelectionSingle(null);};
+document.getElementById('placeOnStage').onclick=()=>{ if(!selection) return; const st=world.children.find(o=>o.name==='Stage'); if(!st)return; const {w,d,h}=st.userData; const sx=Math.max(-w/2+0.5,Math.min(w/2-0.5,selection.position.x-st.position.x)), sz=Math.max(-d/2+0.5,Math.min(d/2-0.5,selection.position.z-st.position.z));
+  selection.position.set(st.position.x+sx,st.position.y+h+0.0001,st.position.z+sz); };
+
+/* 視角 */
+function viewIso(){ camera=perspCam; const cx=Math.min(currentVenue.w*0.35,currentVenue.w/2-1.0), cy=Math.min(currentVenue.h*0.72,currentVenue.h-0.6), cz=Math.min(currentVenue.d*0.35,currentVenue.d/2-1.0);
+  perspCam.position.set(cx,cy,cz); controls.target.set(0,0.9,0); controls.update();}
+function viewTop(){ camera=orthoCam; const asp=innerWidth/innerHeight, h=currentVenue.d*.6; orthoCam.left=-h*asp; orthoCam.right=h*asp; orthoCam.top=h; orthoCam.bottom=-h; orthoCam.updateProjectionMatrix(); orthoCam.position.set(0,Math.max(currentVenue.w,currentVenue.d)*1.1,.0001); orthoCam.lookAt(0,0,0);}
+function viewAudience(){ camera=perspCam; const z=stageFrontZ(); perspCam.position.set(0,1.6,z+12); controls.target.set(0,1.6,z); controls.update();}
+function viewQuarterFront(){ camera=perspCam; const z=stageFrontZ(); perspCam.position.set(10,6,z+10); controls.target.set(0,1.5,z); controls.update();}
+document.getElementById('basicView').onclick=()=>viewIso(); document.getElementById('topView').onclick=()=>viewTop(); document.getElementById('toggle2D').onclick=()=>{ if(camera===perspCam) viewTop(); else viewIso(); };
+document.getElementById('viewIsoF').onclick=()=>{camera=perspCam;viewIso();}; document.getElementById('viewAudF').onclick=()=>viewAudience();
+document.getElementById('viewTopFF').onclick=()=>viewTop(); document.getElementById('viewQFF').onclick=()=>viewQuarterFront();
+
+/* 成品模式（物件鎖，但可移動視角） */
+function setFinalMode(on){
+  document.querySelectorAll('.hideInFinal').forEach(el=>el.style.display=on?'none':'');
+  document.querySelectorAll('.finalOnly').forEach(el=>el.style.display=on?'block':'none');
+  document.getElementById('modeBadge').textContent=on?'成品':'編輯';
+  tCtrl.visible=!on; pickEnabled=!on; controls.enabled=true; // 成品可轉視角
+  if(on){ setChairsVisible(true); viewIso(); setEmission((document.getElementById('emitOnF')||{checked:true}).checked); applyTheme((document.getElementById('finalThemeF')||{value:'neutral'}).value); }
+  else { setChairsVisible(false); setEmission(false); applyTheme('neutral'); renderer.toneMappingExposure=1.12; amb.intensity=1.02; dir.intensity=1.28; }
+}
+document.getElementById('btnFinal').onclick=()=>setFinalMode(true);
+document.getElementById('backToEdit').onclick=()=>setFinalMode(false);
+(document.getElementById('emitOnF')||{}).onchange=(e)=>setEmission(e.target.checked);
+(document.getElementById('finalThemeF')||{}).onchange=(e)=>applyTheme(e.target.value);
+(document.getElementById('brightnessF')||{}).oninput=(e)=>{ const k=parseFloat(e.target.value); renderer.toneMappingExposure=k; amb.intensity=0.9*k; dir.intensity=1.1*k; };
+
+/* 面板綁定 */
+function rebuild(){currentVenue.w=parseFloat(document.getElementById('venueW').value)||36; currentVenue.d=parseFloat(document.getElementById('venueD').value)||24; currentVenue.h=parseFloat(document.getElementById('venueH').value)||7; rebuildVenue();}
+document.getElementById('applyVenue').onclick=rebuild;
+document.getElementById('addStage').onclick=()=>{const s=createStage(parseFloat(document.getElementById('stageW').value)||16, parseFloat(document.getElementById('stageD').value)||4,1); s.position.set(0,0,-currentVenue.d/2+2); world.add(s);};
+document.getElementById('addLED').onclick=()=>{const g=createLED(parseFloat(document.getElementById('ledW').value)||14,4); g.position.set(0,0,-currentVenue.d/2+2.3); world.add(g);};
+document.getElementById('btnAddSpeaker15').onclick=()=>{const o=createSpeaker15Stand(); audioGroup.add(o); clampToSurface(o); setSelectionSingle(o);};
+document.getElementById('btnAddWedge').onclick=()=>{const o=createWedge(); audioGroup.add(o); clampToSurface(o); setSelectionSingle(o);};
+document.getElementById('btnAddMixer').onclick=()=>{const o=createMixer(); world.add(o); clampToSurface(o); setSelectionSingle(o);};
+document.getElementById('btnAddMH').onclick=()=>{const o=createMovingHead(); lightGroup.add(o); clampToSurface(o); setSelectionSingle(o);};
+document.getElementById('btnAddPAR').onclick=()=>{const o=createPar(); lightGroup.add(o); clampToSurface(o); setSelectionSingle(o);};
+document.getElementById('btnAddBlinder').onclick=()=>{const o=createBlinder(); lightGroup.add(o); clampToSurface(o); setSelectionSingle(o);};
+document.getElementById('btnAddStrobe').onclick=()=>{const o=createStrobe(); lightGroup.add(o); clampToSurface(o); setSelectionSingle(o);};
+document.getElementById('btnAddBar').onclick=()=>{const o=createLedBar(); lightGroup.add(o); clampToSurface(o); setSelectionSingle(o);};
+document.getElementById('btnAddTrussT').onclick=()=>{const o=createTrussT(); world.add(o); clampToSurface(o); setSelectionSingle(o);};
+document.getElementById('btnAddLight').onclick=()=>{const o=createLightConsole(); world.add(o); clampToSurface(o); setSelectionSingle(o);};
+document.getElementById('buildAudio').onclick=buildAudio; document.getElementById('clearAudio').onclick=()=>clearGroup(audioGroup);
+document.getElementById('buildLight').onclick=()=>{buildLight(); setEmission((document.getElementById('emitOnF')||{checked:true}).checked);}; document.getElementById('clearLight').onclick=()=>clearGroup(lightGroup);
+const layoutType=document.getElementById('layoutType'), banquetSet=document.getElementById('banquetSet'), classSet=document.getElementById('classSet');
+layoutType.onchange=()=>{const t=layoutType.value;banquetSet.style.display=t==='banquet'?'':'none';classSet.style.display=t==='classroom'?'':'none';};
+document.getElementById('placeTables').onclick=()=>{layoutType.value==='banquet'?placeBanquet():placeClassroom();};
+document.getElementById('toggleUI').onclick=()=>{ui.style.display=ui.style.display==='none'?'block':'none';};
+
+/* 截圖 JPG */
+document.getElementById('shot').onclick=()=>{ renderer.render(scene,camera); const a=document.createElement('a'); a.href=renderer.domElement.toDataURL('image/jpeg',0.92); a.download='render.jpg'; a.click(); };
+
+/* 迴圈與初始化 */
+let last=performance.now(),frames=0;
+function tick(now){frames++; if(now-last>=1000){fpsEl.textContent=String(frames);frames=0;last=now;} controls.update(); renderer.render(scene,camera); requestAnimationFrame(tick);} 
+function init(){rebuildVenue(); const st=createStage(16,4,1); st.position.set(0,0,-currentVenue.d/2+2); world.add(st); viewIso();}
+init(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>
