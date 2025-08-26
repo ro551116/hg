@@ -433,7 +433,7 @@ document.getElementById('viewTopFF').onclick=()=>viewTop(); document.getElementB
 /* 成品模式（物件鎖，但可移動視角） */
 function setFinalMode(on){
   document.querySelectorAll('.hideInFinal').forEach(el=>el.style.display=on?'none':'');
-  document.querySelectorAll('.finalOnly').forEach(el=>el.style.display=on?'':'none');
+  document.querySelectorAll('.finalOnly').forEach(el=>el.style.display=on?'block':'none');
   document.getElementById('modeBadge').textContent=on?'成品':'編輯';
   tCtrl.visible=!on; pickEnabled=!on; controls.enabled=true; // 成品可轉視角
   if(on){ setChairsVisible(true); viewIso(); setEmission((document.getElementById('emitOnF')||{checked:true}).checked); applyTheme((document.getElementById('finalThemeF')||{value:'neutral'}).value); }
